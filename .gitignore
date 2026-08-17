@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Node / 前端
+node_modules/
+dist/
+.vite/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# PaddleOCR / 模型缓存
+.paddlex/
+__paddle_tmp__/
+
+# 测试与日志
+.pytest_cache/
+.coverage
+*.log
