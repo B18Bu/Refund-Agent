@@ -18,10 +18,10 @@ services:
       timeout: 5s
       retries: 10
 
-  # Redis + RedisJSON 模块（langgraph-checkpoint-redis 依赖 JSON.SET）
+  # Redis：Streams 队列 / 幂等键 / 审批锁（Checkpointer 走 PostgreSQL，见 CHECKPOINTER_BACKEND）
   redis:
-    image: redis/redis-stack-server:latest
-    command: ["redis-stack-server", "--appendonly", "yes"]
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
     volumes:
@@ -39,6 +39,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
       REDIS_URL: redis://redis:6379/0
+      CHECKPOINTER_BACKEND: postgres
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-secret-in-production}
       LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
@@ -65,6 +66,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
       REDIS_URL: redis://redis:6379/0
+      CHECKPOINTER_BACKEND: postgres
       LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}

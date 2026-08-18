@@ -145,10 +145,20 @@ def approve_ticket(
         t = db.get(Ticket, ticket_id)
         if t is None:
             raise HTTPException(404, "工单不存在")
-        if t.status != TicketStatus.SUSPENDED:
-            raise HTTPException(409, "工单不在挂起状态，无法审批")
         if t.decision == Decision.FAILED:
             raise HTTPException(409, "工单已失败，无法审批")
+        # 三方对齐最终防线：DB 条件更新（原子），仅当仍为 SUSPENDED 才允许审批，
+        # 并将状态原子地推进为 RUNNING（占位），防止锁释放空窗期被第二个主管重复审批。
+        claimed = (
+            db.query(Ticket)
+            .filter(Ticket.id == ticket_id, Ticket.status == TicketStatus.SUSPENDED)
+            .update(
+                {"status": TicketStatus.RUNNING},
+                synchronize_session=False,
+            )
+        )
+        if claimed == 0:
+            raise HTTPException(409, "工单不在挂起状态，无法审批")
         db.add(Approval(ticket_id=t.id, reviewer_id=user.id, action=body.action, comment=body.comment))
         db.commit()
     except HTTPException:
@@ -170,7 +180,7 @@ def approve_ticket(
     )
     return ApproveResponse(
         ticket_id=ticket_id,
-        status=t.status.value,
+        status=TicketStatus.RUNNING.value,
         outcome=body.action,
         message="审批已记录，决策流正在恢复",
     )

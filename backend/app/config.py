@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     CONSUMER_GROUP: str = "worker-group"
     CONSUMER_NAME: str = "worker-1"
 
+    # ===== LangGraph Checkpointer =====
+    # postgres（默认，零额外依赖） | redis（需 RedisJSON 模块）
+    CHECKPOINTER_BACKEND: str = "postgres"
+
     # ===== OCR（本地 PaddleOCR）=====
     OCR_DEVICE: str = "cpu"  # cpu | gpu
     OCR_USE_ANGLE_CLS: bool = True

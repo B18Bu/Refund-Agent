@@ -11,10 +11,10 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from langgraph.checkpoint.redis import RedisSaver
 from langgraph.types import Command
 from sqlalchemy.orm import Session
 
+from app.agents.checkpointer import get_checkpointer
 from app.agents.graph import build_graph
 from app.config import settings
 from app.db import SessionLocal
@@ -109,23 +109,62 @@ def run_once() -> int:
     return processed
 
 
+# 节点名 → 展示名（与大屏 FlowCanvas 顺序一致）
+_NODE_DISPLAY = {
+    "intake": "Intake",
+    "ocr": "OCR",
+    "fraud": "Fraud",
+    "sentiment": "Sentiment",
+    "decision": "Decision",
+    "human_review": "HumanReview",
+}
+
+
+def write_trace(ticket_id: int, agent_name: str, status: str, output_summary: str | None = None,
+                error_code: str | None = None) -> None:
+    with SessionLocal() as db:
+        seq = db.query(AgentTrace).filter(AgentTrace.ticket_id == ticket_id).count() + 1
+        db.add(AgentTrace(
+            ticket_id=ticket_id,
+            sequence_no=seq,
+            agent_name=agent_name,
+            status=status,
+            output_summary=output_summary,
+            error_code=error_code,
+            ended_at=datetime.now(timezone.utc),
+        ))
+        db.commit()
+
+
+def publish_event(ticket_id: int, event: str, payload: dict) -> None:
+    try:
+        redis = get_redis()
+        data = json.dumps({"event": event, "ticket_id": ticket_id, **payload}, ensure_ascii=False)
+        redis.publish(f"{settings.EVENT_CHANNEL_PREFIX}:{ticket_id}", data)
+    except Exception as exc:
+        logger.warning("publish_event 失败: %s", exc)
+
+
 def process(fields: dict) -> None:
     ticket_id = int(fields["ticket_id"])
     thread_id = fields["thread_id"]
     msg_type = fields.get("type", "START")
     resume_action = fields.get("resume_action")
 
-    with RedisSaver.from_conn_string(settings.REDIS_URL) as checkpointer:
+    with get_checkpointer() as checkpointer:
         graph = build_graph().compile(checkpointer=checkpointer)
         cfg = {"configurable": {"thread_id": thread_id}}
 
         if msg_type == "RESUME" or resume_action:
-            # A-07：checkpoint 缺失兜底
+            # A-07：checkpoint 缺失兜底（恢复时若无已保存的图状态 → FAILED + CHECKPOINT_NOT_FOUND）
             snap0 = graph.get_state(cfg)
-            if not snap0 or snap0.next is None and not snap0.values:
+            if not snap0 or not snap0.values:
                 raise CheckpointNotFound(f"thread={thread_id} checkpoint 缺失")
             update_ticket(thread_id, status=TicketStatus.RUNNING)
-            graph.invoke(Command(resume={"action": resume_action}), config=cfg)
+            publish_event(ticket_id, "ticket_status_changed", {"status": "RUNNING", "outcome": "PENDING"})
+            # stream 模式捕获 human_review 节点输出（approval_action 落库轨迹）
+            for _ in graph.stream(Command(resume={"action": resume_action}), config=cfg, stream_mode="updates"):
+                pass
         else:
             with SessionLocal() as db:
                 t = db.get(Ticket, ticket_id)
@@ -137,13 +176,39 @@ def process(fields: dict) -> None:
                     "image_paths": t.image_paths or [],
                 }
             update_ticket(thread_id, status=TicketStatus.RUNNING)
-            for _ in graph.stream(initial, config=cfg):
-                pass  # stream 遇 interrupt 不抛异常，挂起判定见下
+            # stream 遇 interrupt 不抛异常；updates 模式逐节点回调写轨迹
+            for chunk in graph.stream(initial, config=cfg, stream_mode="updates"):
+                for node_name, node_out in (chunk or {}).items():
+                    if node_name == "__interrupt__":
+                        continue
+                    display = _NODE_DISPLAY.get(node_name, node_name.title())
+                    status = "SUSPENDED" if node_name == "human_review" else "SUCCESS"
+                    summary = None
+                    if node_name == "ocr":
+                        summary = node_out.get("ocr_text", "")
+                    elif node_name == "fraud":
+                        summary = f"fraud_score={node_out.get('fraud_score')}"
+                    elif node_name == "sentiment":
+                        summary = f"sentiment={node_out.get('sentiment')}"
+                    elif node_name == "decision":
+                        summary = node_out.get("decision", "")
+                    write_trace(ticket_id, display, status, summary)
+                    publish_event(ticket_id, "trace_updated", {"agent_name": display, "status": status})
 
         # 判断是否挂起（interrupt 在 human_review 节点）
         snapshot = graph.get_state(cfg)
         if snapshot.next and "human_review" in snapshot.next:
-            update_ticket(thread_id, status=TicketStatus.SUSPENDED)
+            # 挂起时也保存 OCR/风控/舆情中间结果，供主管审批前查看证据
+            state = snapshot.values or {}
+            update_ticket(
+                thread_id,
+                status=TicketStatus.SUSPENDED,
+                ocr_text=state.get("ocr_text"),
+                ocr_confidence=state.get("ocr_confidence"),
+                fraud_score=state.get("fraud_score"),
+                sentiment=state.get("sentiment"),
+            )
+            publish_event(ticket_id, "ticket_status_changed", {"status": "SUSPENDED", "outcome": "PENDING"})
             return
 
         # 未挂起 → 读取最终 state 落库
@@ -161,6 +226,7 @@ def process(fields: dict) -> None:
             sentiment=state.get("sentiment"),
             completed_at=datetime.now(timezone.utc),
         )
+        publish_event(ticket_id, "completed", {"outcome": final_decision})
 
 
 class CheckpointNotFound(Exception):
