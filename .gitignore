@@ -31,3 +31,9 @@ __paddle_tmp__/
 uploads/
 data/uploads/
 *.tsbuildinfo
+invoice350.png
+goods128.png
+test_ocr.png
+s1_evidence.txt
+s2_evidence.txt
+loadtest_report.html
