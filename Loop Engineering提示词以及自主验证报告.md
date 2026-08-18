@@ -112,3 +112,19 @@ POST /api/tickets   P95 240ms   GET /api/tickets   P95 160ms
 1. **Checkpointer 后端**：三方对齐原定 Redis Checkpointer，因本机无法获取 RedisJSON（redis-stack 镜像拉取持续失败），经用户裁决改用 **Postgres Checkpointer**（`langgraph-checkpoint-postgres`）。仍满足 P0 核心「原生 interrupt() + Checkpointer + Command(resume)、不手工 pickle」；`CHECKPOINTER_BACKEND=redis` 可随时切回（需 RedisJSON 模块）。
 2. **压测口径**：Locust 与目标服务同机（Windows 本地），QPS 波动 190-215；核心指标稳定达标。生产建议分离压测机。
 3. **OCR 版本**：PaddleOCR 2.9.1 + paddlepaddle 2.6.2 为 Windows 验证通过的组合；3.x 在 Windows 存在 onednn/PIR 执行器缺陷，已在 requirements-ocr.txt 注释说明。
+
+### 3.6 Docker 容器化部署验证（2026-08-18 补录）
+
+| 服务 | 镜像 | 状态 | 验证 |
+| --- | --- | --- | --- |
+| api | agent-api:latest（2.2GB，含 PaddleOCR） | Up | `/healthz` `/readyz` 通过 |
+| worker | agent-worker（复用 api 镜像） | Up | 消费 Streams → 决策流 → 挂起/恢复 |
+| frontend | agent-frontend（nginx） | Up | 页面 200，代理 `/api` → api:8000 登录成功 |
+| postgres | postgres:15-alpine | Healthy | 数据持久化 |
+| redis | redis:7-alpine | Healthy | Streams/幂等/锁 |
+
+容器内端到端：建单 → Worker LangGraph 决策流（mock LLM）→ SUSPENDED（fraud=20/LOW）→ 主管 APPROVE → **COMPLETED/APPROVED**。
+
+构建要点：
+- Dockerfile 使用清华 PyPI 源加速；requirements-ocr.txt 固定 opencv==4.11.0.86 避免 pip 版本扫描拖慢构建。
+- 首次容器内 OCR 需下载 PaddleOCR 模型（离线运行前的一次性网络依赖）。
