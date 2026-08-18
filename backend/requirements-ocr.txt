@@ -1,0 +1,5 @@
+# OCR 依赖（本地 PaddleOCR，体积大，单独安装，供 Worker 真正 OCR 时用）
+# 已验证版本组合：PaddleOCR 2.x + paddlepaddle 2.6.x 在 Windows + Python 3.12 上本地推理通过。
+# 注意：PaddleOCR 3.x（paddlepaddle 3.x）在 Windows 上存在 onednn/PIR 执行器缺陷，勿升级。
+paddlepaddle==2.6.2
+paddleocr==2.9.1

@@ -25,3 +25,8 @@ __paddle_tmp__/
 .pytest_cache/
 .coverage
 *.log
+
+# 运行时产物
+*.stackdump
+uploads/
+data/uploads/
