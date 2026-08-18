@@ -30,3 +30,4 @@ __paddle_tmp__/
 *.stackdump
 uploads/
 data/uploads/
+*.tsbuildinfo
