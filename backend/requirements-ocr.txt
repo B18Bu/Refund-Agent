@@ -3,3 +3,7 @@
 # 注意：PaddleOCR 3.x（paddlepaddle 3.x）在 Windows 上存在 onednn/PIR 执行器缺陷，勿升级。
 paddlepaddle==2.6.2
 paddleocr==2.9.1
+# 固定 opencv 版本，避免 pip 解析时下载多个候选 wheel 拖慢构建
+opencv-python==4.11.0.86
+opencv-contrib-python==4.11.0.86
+opencv-python-headless==4.11.0.86

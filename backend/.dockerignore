@@ -8,5 +8,4 @@ data/
 uploads/
 *.stackdump
 *.png
-*.txt
 .git/

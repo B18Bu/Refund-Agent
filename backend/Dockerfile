@@ -10,8 +10,8 @@ WORKDIR /app
 
 # 先装基础依赖（含 OCR 依赖，本地推理引擎）
 COPY requirements.txt requirements-ocr.txt ./
-RUN pip install --no-cache-dir -r requirements.txt \
- && pip install --no-cache-dir -r requirements-ocr.txt
+RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt \
+ && pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements-ocr.txt
 
 COPY . .
 
