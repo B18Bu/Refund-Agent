@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "dev-secret-change-me-please-use-a-32-byte-secret-key"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRES_MINUTES: int = 120
+    BCRYPT_ROUNDS: int = 8  # 压测/演示可降低；生产建议 12
 
     # ===== LLM（OpenAI 兼容适配器）=====
     # LLM_PROVIDER: deepseek | mock   （mock 供本地无密钥 / 单测使用）

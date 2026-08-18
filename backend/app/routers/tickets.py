@@ -71,7 +71,8 @@ def create_ticket(
 
 @router.get("")
 def list_tickets(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    rows = db.query(Ticket).order_by(Ticket.id.desc()).all()
+    # 只返回最近 N 条，避免全表扫描拖垮列表接口（压测/大数据量场景）
+    rows = db.query(Ticket).order_by(Ticket.id.desc()).limit(100).all()
     return [
         {
             "id": t.id,
