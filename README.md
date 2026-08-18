@@ -122,12 +122,16 @@ npm install
 npm run dev        # http://localhost:5173（代理 /api → :8000）
 ```
 
-### 演示账号
+### 演示账号（密码统一 `secret123`）
 
 | 用户名 | 密码 | 角色 |
 | --- | --- | --- |
 | `cs1` | `secret123` | 客服（提交工单） |
 | `sv1` | `secret123` | 主管（审批） |
+| `customer_service_01` | `secret123` | 客服（specs 命名） |
+| `supervisor_01` | `secret123` | 主管（specs 命名） |
+
+> 任一命名均可登录；`specs/quickstart.md` 的登录示例使用 `supervisor_01`。
 
 ## 本地算法模型
 

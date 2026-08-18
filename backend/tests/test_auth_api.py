@@ -30,5 +30,20 @@ def test_login_unknown_user(client):
     assert r.status_code == 401
 
 
+def test_login_specs_named_supervisor(client, db_session):
+    """specs/quickstart 使用的 supervisor_01 命名必须可登录。"""
+    _make_user(db_session, "supervisor_01", Role.SV)
+    r = client.post("/api/auth/login", json={"username": "supervisor_01", "password": "secret123"})
+    assert r.status_code == 200
+    assert r.json()["access_token"]
+
+
+def test_login_specs_named_customer_service(client, db_session):
+    _make_user(db_session, "customer_service_01", Role.CS)
+    r = client.post("/api/auth/login", json={"username": "customer_service_01", "password": "secret123"})
+    assert r.status_code == 200
+    assert r.json()["access_token"]
+
+
 def test_healthz(client):
     assert client.get("/healthz").status_code == 200

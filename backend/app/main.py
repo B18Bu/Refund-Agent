@@ -16,12 +16,21 @@ def init_db() -> None:
 
 
 def seed_users() -> None:
-    """幂等创建演示用户：cs1（客服）/ sv1（主管）。"""
+    """幂等创建演示用户（兼容两套命名，密码统一 secret123）。
+
+    - cs1 / sv1：实现计划（人工方）命名
+    - customer_service_01 / supervisor_01：specs / quickstart（AI-B 规范）命名
+    """
+    demo_users = [
+        ("cs1", Role.CS),
+        ("sv1", Role.SV),
+        ("customer_service_01", Role.CS),
+        ("supervisor_01", Role.SV),
+    ]
     with SessionLocal() as db:
-        if db.query(User).filter(User.username == "cs1").first() is None:
-            db.add(User(username="cs1", password_hash=hash_password("secret123"), role=Role.CS))
-        if db.query(User).filter(User.username == "sv1").first() is None:
-            db.add(User(username="sv1", password_hash=hash_password("secret123"), role=Role.SV))
+        for username, role in demo_users:
+            if db.query(User).filter(User.username == username).first() is None:
+                db.add(User(username=username, password_hash=hash_password("secret123"), role=role))
         db.commit()
 
 
