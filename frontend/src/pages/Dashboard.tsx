@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, InputNumber, Tag, message, Space, Typography } from 'antd'
+import { Alert, Table, Button, InputNumber, Tag, message, Space, Typography, Modal, Upload, Form, Empty } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import type { UploadFile } from 'antd'
 import client from '../api/client'
 import { useNavigate } from 'react-router-dom'
 
@@ -8,9 +10,12 @@ type Row = {
   ticket_no: string
   amount: number
   status: string
+  status_text: string
   outcome: string
+  outcome_text: string
   fraud_score: number | null
   sentiment: string | null
+  sentiment_text: string | null
   error_code: string | null
   created_at: string | null
 }
@@ -29,32 +34,53 @@ const outcomeColor: Record<string, string> = {
   FAILED: 'volcano',
 }
 
-export default function Dashboard() {
+// 舆情等级英文→中文兜底（后端已返回 sentiment_text，此处备用）
+const sentimentCN: Record<string, string> = { LOW: '低', MEDIUM: '中', HIGH: '高' }
+
+export default function Dashboard({ title = '退赔工单工作台', showScreen = false }: { title?: string; showScreen?: boolean }) {
   const [rows, setRows] = useState<Row[]>([])
+  const [listLoading, setListLoading] = useState(false)
+  const [listError, setListError] = useState<string | null>(null)
   const [amount, setAmount] = useState<number>(128)
   const [loading, setLoading] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [fileList, setFileList] = useState<UploadFile[]>([])
   const nav = useNavigate()
 
   const load = async () => {
-    const { data } = await client.get('/tickets')
-    setRows(data)
+    setListLoading(true)
+    try {
+      const { data } = await client.get('/tickets')
+      setRows(data)
+      setListError(null)
+    } catch (e: any) {
+      setListError(e.response?.data?.detail || '退款申请加载失败，请重试')
+    } finally {
+      setListLoading(false)
+    }
   }
   useEffect(() => {
-    load()
-    const timer = setInterval(load, 5000)
+    void load()
+    const timer = setInterval(() => { void load() }, 5000)
     return () => clearInterval(timer)
   }, [])
 
   const create = async () => {
     setLoading(true)
     try {
-      await client.post(
-        '/tickets',
-        { amount, image_paths: [] },
-        { headers: { 'X-Idempotency-Key': crypto.randomUUID() } },
-      )
+      // multipart：一次建单 + 上传凭证，保证 Worker 消费时图片已就绪
+      const form = new FormData()
+      form.append('amount', String(amount))
+      for (const f of fileList) {
+        if (f.originFileObj) form.append('files', f.originFileObj)
+      }
+      await client.post('/tickets/with-files', form, {
+        headers: { 'X-Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'multipart/form-data' },
+      })
       message.success('已提交申请')
-      load()
+      setModalOpen(false)
+      setFileList([])
+      void load()
     } catch (e: any) {
       message.error(e.response?.data?.detail || '提交失败')
     } finally {
@@ -65,25 +91,66 @@ export default function Dashboard() {
   const cols = [
     { title: '工单号', dataIndex: 'ticket_no' },
     { title: '金额', dataIndex: 'amount', render: (v: number) => `¥${v}` },
-    { title: '状态', dataIndex: 'status', render: (v: string) => <Tag color={statusColor[v]}>{v}</Tag> },
-    { title: '结果', dataIndex: 'outcome', render: (v: string) => <Tag color={outcomeColor[v]}>{v}</Tag> },
+    { title: '状态', dataIndex: 'status_text', render: (_: string, r: Row) => <Tag color={statusColor[r.status]}>{r.status_text || r.status}</Tag> },
+    { title: '结果', dataIndex: 'outcome_text', render: (_: string, r: Row) => <Tag color={outcomeColor[r.outcome]}>{r.outcome_text || r.outcome}</Tag> },
     { title: '欺诈分', dataIndex: 'fraud_score', render: (v: number | null) => v ?? '-' },
-    { title: '舆情', dataIndex: 'sentiment', render: (v: string | null) => v ?? '-' },
+    { title: '舆情', dataIndex: 'sentiment_text', render: (_: string, r: Row) => r.sentiment_text ?? sentimentCN[r.sentiment ?? ''] ?? '-' },
     { title: '错误', dataIndex: 'error_code', render: (v: string | null) => v ?? '-' },
   ]
 
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16 }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>退赔工单工作台</Typography.Title>
-        <Button onClick={() => nav('/screen')}>进入大屏</Button>
+        <Typography.Title level={4} style={{ margin: 0 }}>{title}</Typography.Title>
+        <Button type="primary" onClick={() => setModalOpen(true)}>新建退款申请</Button>
+        {showScreen && <Button onClick={() => nav('/screen')}>进入大屏</Button>}
       </Space>
-      <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={create} loading={loading}>新建退款申请</Button>
-        <InputNumber value={amount} onChange={(v) => setAmount(v ?? 0)} min={0} addonBefore="金额" />
-      </Space>
+
+      <Modal
+        title="新建退款申请"
+        open={modalOpen}
+        onOk={create}
+        onCancel={() => { setModalOpen(false); setFileList([]) }}
+        confirmLoading={loading}
+        okText="提交"
+        cancelText="取消"
+      >
+        <Form layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="退款金额（元）" required>
+            <InputNumber value={amount} onChange={(v) => setAmount(v ?? 0)} min={0.01} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="凭证图片（建议上传清晰订单/商品图，最多 3 张）">
+            <Upload
+              listType="picture-card"
+              fileList={fileList}
+              beforeUpload={() => false}
+              onChange={({ fileList: fl }) => setFileList(fl.slice(0, 3))}
+              accept="image/jpeg,image/png"
+            >
+              {fileList.length >= 3 ? null : (
+                <div><PlusOutlined /><div style={{ marginTop: 8 }}>上传</div></div>
+              )}
+            </Upload>
+          </Form.Item>
+          <Typography.Text type="secondary">
+            提示：不上传凭证或凭证模糊时，系统将转人工审核（OCR 置信度 {'<'} 60% 强制人工）。
+          </Typography.Text>
+        </Form>
+      </Modal>
+      {listError && (
+        <Alert
+          type="error"
+          showIcon
+          message="退款申请加载失败"
+          description={listError}
+          action={<Button size="small" onClick={() => void load()}>重试</Button>}
+          style={{ marginBottom: 16 }}
+        />
+      )}
       <Table
         rowKey="id"
+        loading={listLoading}
+        locale={{ emptyText: <Empty description="暂无退款申请" /> }}
         dataSource={rows}
         columns={cols}
         pagination={{ pageSize: 10 }}

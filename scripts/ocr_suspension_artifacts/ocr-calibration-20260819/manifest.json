@@ -1,0 +1,392 @@
+{
+  "run_id": "ocr-calibration-20260819",
+  "base_url": "http://localhost:8000",
+  "seed": 7,
+  "count": 5,
+  "category_counts": {
+    "baseline_clear": 1,
+    "low_contrast_small_text": 2,
+    "occluded_blurred_or_blank": 2
+  },
+  "threshold": 0.6,
+  "ocr_calibration_note": "低置信样本受不同 PaddleOCR 版本、模型和运行环境影响，不能保证 OCR<0.6；正式批量运行前请先小样本校准。",
+  "records": [
+    {
+      "sample_class": "baseline_clear",
+      "ticket_id": 4,
+      "submitted_at": "2026-08-19T13:15:58.885016+00:00",
+      "expected_range": {
+        "ocr_confidence": ">= 0.6（仅观察，不预设成功终态）",
+        "note": "输出实际终态"
+      },
+      "final_detail": {
+        "id": 4,
+        "ticket_no": "c0b120d62c1447bf9d6f805fcfee263b",
+        "amount": 128.0,
+        "ocr_text": "",
+        "ocr_confidence": 0.0,
+        "fraud_score": 20,
+        "sentiment": "LOW",
+        "sentiment_text": "低",
+        "status": "SUSPENDED",
+        "status_text": "待人工审批",
+        "decision": "PENDING",
+        "outcome": "PENDING",
+        "outcome_text": "待定",
+        "error_code": null,
+        "error_message": null,
+        "created_at": "2026-08-19T13:15:58.891143",
+        "traces": [
+          {
+            "agent_name": "Intake",
+            "status": "SUCCESS",
+            "sequence_no": 1,
+            "input_summary": null,
+            "output_summary": null,
+            "error_code": null,
+            "started_at": "2026-08-19T13:15:58.937793",
+            "ended_at": "2026-08-19T13:15:58.938348"
+          },
+          {
+            "agent_name": "OCR",
+            "status": "SUCCESS",
+            "sequence_no": 2,
+            "input_summary": null,
+            "output_summary": "",
+            "error_code": null,
+            "started_at": "2026-08-19T13:15:58.949791",
+            "ended_at": "2026-08-19T13:15:58.950461"
+          },
+          {
+            "agent_name": "Fraud",
+            "status": "SUCCESS",
+            "sequence_no": 3,
+            "input_summary": null,
+            "output_summary": "fraud_score=20",
+            "error_code": null,
+            "started_at": "2026-08-19T13:15:58.957530",
+            "ended_at": "2026-08-19T13:15:58.958298"
+          },
+          {
+            "agent_name": "Sentiment",
+            "status": "SUCCESS",
+            "sequence_no": 4,
+            "input_summary": null,
+            "output_summary": "sentiment=LOW",
+            "error_code": null,
+            "started_at": "2026-08-19T13:15:58.964577",
+            "ended_at": "2026-08-19T13:15:58.965189"
+          },
+          {
+            "agent_name": "Decision",
+            "status": "SUCCESS",
+            "sequence_no": 5,
+            "input_summary": null,
+            "output_summary": "HUMAN_REVIEW",
+            "error_code": null,
+            "started_at": "2026-08-19T13:15:58.972427",
+            "ended_at": "2026-08-19T13:15:58.973209"
+          }
+        ]
+      },
+      "verdict": "OBSERVED",
+      "image": "ocr-calibration-20260819\\0001_baseline_clear.png",
+      "poll_result": "OBSERVED_TERMINAL"
+    },
+    {
+      "sample_class": "low_contrast_small_text",
+      "ticket_id": 5,
+      "submitted_at": "2026-08-19T13:15:59.918994+00:00",
+      "expected_range": {
+        "ocr_confidence": "< 0.6",
+        "status": "SUSPENDED",
+        "outcome": "PENDING"
+      },
+      "final_detail": {
+        "id": 5,
+        "ticket_no": "d21aa9d0286c42778d459b216742ffe9",
+        "amount": 128.0,
+        "ocr_text": null,
+        "ocr_confidence": null,
+        "fraud_score": null,
+        "sentiment": null,
+        "sentiment_text": null,
+        "status": "COMPLETED",
+        "status_text": "已完成",
+        "decision": "FAILED",
+        "outcome": "FAILED",
+        "outcome_text": "处理失败",
+        "error_code": "PROCESS_FAILED",
+        "error_message": "Worker 处理异常: Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.",
+        "created_at": "2026-08-19T13:15:59.929905",
+        "traces": [
+          {
+            "agent_name": "Intake",
+            "status": "SUCCESS",
+            "sequence_no": 1,
+            "input_summary": null,
+            "output_summary": null,
+            "error_code": null,
+            "started_at": "2026-08-19T13:15:59.981802",
+            "ended_at": "2026-08-19T13:15:59.982523"
+          },
+          {
+            "agent_name": "OCR",
+            "status": "SUCCESS",
+            "sequence_no": 2,
+            "input_summary": null,
+            "output_summary": "",
+            "error_code": null,
+            "started_at": "2026-08-19T13:15:59.998899",
+            "ended_at": "2026-08-19T13:15:59.999787"
+          },
+          {
+            "agent_name": "Worker",
+            "status": "FAILED",
+            "sequence_no": 3,
+            "input_summary": null,
+            "output_summary": "Worker 处理异常: Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.",
+            "error_code": "PROCESS_FAILED",
+            "started_at": "2026-08-19T13:16:00.342067",
+            "ended_at": "2026-08-19T13:16:00.343635"
+          }
+        ]
+      },
+      "verdict": "FAIL",
+      "image": "ocr-calibration-20260819\\0002_low_contrast_small_text.png",
+      "poll_result": "OBSERVED_TERMINAL"
+    },
+    {
+      "sample_class": "low_contrast_small_text",
+      "ticket_id": 6,
+      "submitted_at": "2026-08-19T13:16:00.966301+00:00",
+      "expected_range": {
+        "ocr_confidence": "< 0.6",
+        "status": "SUSPENDED",
+        "outcome": "PENDING"
+      },
+      "final_detail": {
+        "id": 6,
+        "ticket_no": "7a4e24c2c0964803b2c87182ead5ef4b",
+        "amount": 128.0,
+        "ocr_text": "",
+        "ocr_confidence": 0.0,
+        "fraud_score": 20,
+        "sentiment": "LOW",
+        "sentiment_text": "低",
+        "status": "SUSPENDED",
+        "status_text": "待人工审批",
+        "decision": "PENDING",
+        "outcome": "PENDING",
+        "outcome_text": "待定",
+        "error_code": null,
+        "error_message": null,
+        "created_at": "2026-08-19T13:16:00.978662",
+        "traces": [
+          {
+            "agent_name": "Intake",
+            "status": "SUCCESS",
+            "sequence_no": 1,
+            "input_summary": null,
+            "output_summary": null,
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:01.015550",
+            "ended_at": "2026-08-19T13:16:01.016790"
+          },
+          {
+            "agent_name": "OCR",
+            "status": "SUCCESS",
+            "sequence_no": 2,
+            "input_summary": null,
+            "output_summary": "",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:01.028448",
+            "ended_at": "2026-08-19T13:16:01.029246"
+          },
+          {
+            "agent_name": "Fraud",
+            "status": "SUCCESS",
+            "sequence_no": 3,
+            "input_summary": null,
+            "output_summary": "fraud_score=20",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:01.038137",
+            "ended_at": "2026-08-19T13:16:01.038836"
+          },
+          {
+            "agent_name": "Sentiment",
+            "status": "SUCCESS",
+            "sequence_no": 4,
+            "input_summary": null,
+            "output_summary": "sentiment=LOW",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:01.047298",
+            "ended_at": "2026-08-19T13:16:01.047969"
+          },
+          {
+            "agent_name": "Decision",
+            "status": "SUCCESS",
+            "sequence_no": 5,
+            "input_summary": null,
+            "output_summary": "HUMAN_REVIEW",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:01.057224",
+            "ended_at": "2026-08-19T13:16:01.057910"
+          }
+        ]
+      },
+      "verdict": "PASS",
+      "image": "ocr-calibration-20260819\\0003_low_contrast_small_text.png",
+      "poll_result": "OBSERVED_TERMINAL"
+    },
+    {
+      "sample_class": "occluded_blurred_or_blank",
+      "ticket_id": 7,
+      "submitted_at": "2026-08-19T13:16:02.041260+00:00",
+      "expected_range": {
+        "ocr_confidence": "< 0.6",
+        "status": "SUSPENDED",
+        "outcome": "PENDING"
+      },
+      "final_detail": {
+        "id": 7,
+        "ticket_no": "04aebb356d3c49fd8b74593dcba3f473",
+        "amount": 128.0,
+        "ocr_text": null,
+        "ocr_confidence": null,
+        "fraud_score": null,
+        "sentiment": null,
+        "sentiment_text": null,
+        "status": "COMPLETED",
+        "status_text": "已完成",
+        "decision": "FAILED",
+        "outcome": "FAILED",
+        "outcome_text": "处理失败",
+        "error_code": "PROCESS_FAILED",
+        "error_message": "Worker 处理异常: Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.",
+        "created_at": "2026-08-19T13:16:02.047591",
+        "traces": [
+          {
+            "agent_name": "Intake",
+            "status": "SUCCESS",
+            "sequence_no": 1,
+            "input_summary": null,
+            "output_summary": null,
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:02.096051",
+            "ended_at": "2026-08-19T13:16:02.096008"
+          },
+          {
+            "agent_name": "OCR",
+            "status": "SUCCESS",
+            "sequence_no": 2,
+            "input_summary": null,
+            "output_summary": "",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:02.111025",
+            "ended_at": "2026-08-19T13:16:02.111639"
+          },
+          {
+            "agent_name": "Worker",
+            "status": "FAILED",
+            "sequence_no": 3,
+            "input_summary": null,
+            "output_summary": "Worker 处理异常: Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.",
+            "error_code": "PROCESS_FAILED",
+            "started_at": "2026-08-19T13:16:02.458118",
+            "ended_at": "2026-08-19T13:16:02.457218"
+          }
+        ]
+      },
+      "verdict": "FAIL",
+      "image": "ocr-calibration-20260819\\0004_occluded_blurred_or_blank.png",
+      "poll_result": "OBSERVED_TERMINAL"
+    },
+    {
+      "sample_class": "occluded_blurred_or_blank",
+      "ticket_id": 8,
+      "submitted_at": "2026-08-19T13:16:03.094170+00:00",
+      "expected_range": {
+        "ocr_confidence": "< 0.6",
+        "status": "SUSPENDED",
+        "outcome": "PENDING"
+      },
+      "final_detail": {
+        "id": 8,
+        "ticket_no": "1d33f301a6e5449b919976c2ef3be58e",
+        "amount": 128.0,
+        "ocr_text": "",
+        "ocr_confidence": 0.0,
+        "fraud_score": 20,
+        "sentiment": "LOW",
+        "sentiment_text": "低",
+        "status": "SUSPENDED",
+        "status_text": "待人工审批",
+        "decision": "PENDING",
+        "outcome": "PENDING",
+        "outcome_text": "待定",
+        "error_code": null,
+        "error_message": null,
+        "created_at": "2026-08-19T13:16:03.117114",
+        "traces": [
+          {
+            "agent_name": "Intake",
+            "status": "SUCCESS",
+            "sequence_no": 1,
+            "input_summary": null,
+            "output_summary": null,
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:03.152935",
+            "ended_at": "2026-08-19T13:16:03.153991"
+          },
+          {
+            "agent_name": "OCR",
+            "status": "SUCCESS",
+            "sequence_no": 2,
+            "input_summary": null,
+            "output_summary": "",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:03.164559",
+            "ended_at": "2026-08-19T13:16:03.165099"
+          },
+          {
+            "agent_name": "Fraud",
+            "status": "SUCCESS",
+            "sequence_no": 3,
+            "input_summary": null,
+            "output_summary": "fraud_score=20",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:03.171806",
+            "ended_at": "2026-08-19T13:16:03.172394"
+          },
+          {
+            "agent_name": "Sentiment",
+            "status": "SUCCESS",
+            "sequence_no": 4,
+            "input_summary": null,
+            "output_summary": "sentiment=LOW",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:03.179319",
+            "ended_at": "2026-08-19T13:16:03.179861"
+          },
+          {
+            "agent_name": "Decision",
+            "status": "SUCCESS",
+            "sequence_no": 5,
+            "input_summary": null,
+            "output_summary": "HUMAN_REVIEW",
+            "error_code": null,
+            "started_at": "2026-08-19T13:16:03.187154",
+            "ended_at": "2026-08-19T13:16:03.187710"
+          }
+        ]
+      },
+      "verdict": "PASS",
+      "image": "ocr-calibration-20260819\\0005_occluded_blurred_or_blank.png",
+      "poll_result": "OBSERVED_TERMINAL"
+    }
+  ],
+  "started_at": "2026-08-19T13:15:58.677647+00:00",
+  "authenticated_at": "2026-08-19T13:15:58.834705+00:00",
+  "finished_at": "2026-08-19T13:16:04.142812+00:00"
+}

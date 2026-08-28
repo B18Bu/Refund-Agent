@@ -1,6 +1,7 @@
 import { Form, Input, Button, message } from 'antd'
 import client from '../api/client'
 import { useNavigate } from 'react-router-dom'
+import { getSessionUser } from '../types/auth'
 
 export default function Login() {
   const nav = useNavigate()
@@ -8,7 +9,7 @@ export default function Login() {
     try {
       const { data } = await client.post('/auth/login', v)
       localStorage.setItem('token', data.access_token)
-      nav('/')
+      nav(getSessionUser()?.role === 'sv' ? '/monitor' : '/my-tickets')
     } catch (e: any) {
       message.error(e.response?.data?.detail || '登录失败')
     }

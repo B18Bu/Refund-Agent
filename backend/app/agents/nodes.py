@@ -9,7 +9,7 @@ from app.agents.decision_rules import decide
 from app.agents.llm import LlmRiskClient
 from app.agents.ocr import OcrClient
 from app.agents.state import GraphState
-from app.config import settings
+from app.storage import resolve_abs_path
 
 _risk_client = LlmRiskClient()
 _ocr_client = OcrClient()
@@ -28,7 +28,8 @@ def ocr_node(state: GraphState) -> GraphState:
     paths = state.get("image_paths", [])
     texts, scores = [], []
     for p in paths:
-        r = _ocr_client.extract(p)
+        image_path = resolve_abs_path(p) if p.startswith(("uploads/", "uploads\\")) else p
+        r = _ocr_client.extract(image_path)
         texts.append(r.text)
         scores.append(r.confidence)
     state["ocr_text"] = "\n".join(texts)

@@ -5,7 +5,7 @@
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
@@ -15,7 +15,15 @@ from app.idempotency import resolve_idempotency
 from app.locks import acquire_approve_lock, release_approve_lock
 from app.models import Approval, Decision, Role, Ticket, TicketStatus
 from app.redis_client import get_redis
-from app.schemas import ApproveRequest, ApproveResponse, TicketCreate
+from app.storage import save_upload
+from app.schemas import (
+    ApproveRequest,
+    ApproveResponse,
+    TicketCreate,
+    outcome_text,
+    sentiment_text,
+    status_text,
+)
 
 router = APIRouter(prefix="/api/tickets", tags=["tickets"])
 
@@ -40,7 +48,9 @@ def create_ticket(
                 "ticket_id": ticket.id,
                 "ticket_no": ticket.ticket_no,
                 "status": ticket.status.value,
+                "status_text": status_text(ticket.status.value),
                 "outcome": ticket.decision.value,
+                "outcome_text": outcome_text(ticket.decision.value),
             }
 
     ticket = Ticket(
@@ -65,24 +75,99 @@ def create_ticket(
         "ticket_id": ticket.id,
         "ticket_no": ticket.ticket_no,
         "status": ticket.status.value,
+        "status_text": status_text(ticket.status.value),
         "outcome": ticket.decision.value,
+        "outcome_text": outcome_text(ticket.decision.value),
+    }
+
+
+@router.post("/with-files")
+async def create_ticket_with_files(
+    amount: float = Form(...),
+    files: list[UploadFile] = File(default=[]),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+    redis=Depends(get_redis),
+    x_idempotency_key: str | None = Header(None),
+):
+    """一次完成建单 + 上传凭证图片（multipart）。保证 Worker 消费时图片已就绪。
+
+    修复时序缺陷：原流程「先建单入队，再传图」会导致 Worker 用空图片先跑 OCR
+    → 置信度 0 → 误转人工。此接口先存图再入队，图片路径随工单一并落库。
+    """
+    idem_key = x_idempotency_key or uuid.uuid4().hex
+    ticket_no = uuid.uuid4().hex
+    redis_key = f"idem:{user.id}:{idem_key}"
+    existing = resolve_idempotency(redis, redis_key, str(ticket_no))
+    if existing is not None:
+        ticket = db.query(Ticket).filter(Ticket.ticket_no == existing).first()
+        if ticket:
+            return {
+                "ticket_id": ticket.id,
+                "ticket_no": ticket.ticket_no,
+                "status": ticket.status.value,
+                "status_text": status_text(ticket.status.value),
+                "outcome": ticket.decision.value,
+                "outcome_text": outcome_text(ticket.decision.value),
+            }
+
+    if len(files) > 3:
+        raise HTTPException(413, "最多上传 3 张图片")
+
+    image_paths: list[str] = []
+    for uf in files:
+        meta = await save_upload(uf)
+        image_paths.append(meta["storage_key"])
+
+    ticket = Ticket(
+        ticket_no=ticket_no,
+        user_id=user.id,
+        amount=amount,
+        image_paths=image_paths,
+        status=TicketStatus.RUNNING,
+        decision=Decision.PENDING,
+        thread_id=uuid.uuid4().hex,
+        idempotency_key=idem_key,
+    )
+    db.add(ticket)
+    db.commit()
+    db.refresh(ticket)
+    # 图片已随工单落库，再入队 START（Worker 读到的 image_paths 非空）
+    redis.xadd(
+        settings.STREAM_KEY,
+        {"type": "START", "ticket_id": str(ticket.id), "thread_id": ticket.thread_id},
+    )
+    return {
+        "ticket_id": ticket.id,
+        "ticket_no": ticket.ticket_no,
+        "status": ticket.status.value,
+        "status_text": status_text(ticket.status.value),
+        "outcome": ticket.decision.value,
+        "outcome_text": outcome_text(ticket.decision.value),
+        "uploaded_files": len(image_paths),
     }
 
 
 @router.get("")
 def list_tickets(user=Depends(get_current_user), db: Session = Depends(get_db)):
     # 只返回最近 N 条，避免全表扫描拖垮列表接口（压测/大数据量场景）
-    rows = db.query(Ticket).order_by(Ticket.id.desc()).limit(100).all()
+    query = db.query(Ticket)
+    if user.role != Role.SV:
+        query = query.filter(Ticket.user_id == user.id)
+    rows = query.order_by(Ticket.id.desc()).limit(100).all()
     return [
         {
             "id": t.id,
             "ticket_no": t.ticket_no,
             "amount": float(t.amount),
             "status": t.status.value,
+            "status_text": status_text(t.status.value),
             "decision": t.decision.value,
             "outcome": t.decision.value,
+            "outcome_text": outcome_text(t.decision.value),
             "fraud_score": t.fraud_score,
             "sentiment": t.sentiment,
+            "sentiment_text": sentiment_text(t.sentiment),
             "error_code": t.error_code,
             "error_message": t.error_message,
             "created_at": t.created_at.isoformat() if t.created_at else None,
@@ -98,7 +183,7 @@ def get_ticket(
     db: Session = Depends(get_db),
 ):
     t = db.get(Ticket, ticket_id)
-    if t is None:
+    if t is None or (user.role != Role.SV and t.user_id != user.id):
         raise HTTPException(404, "工单不存在")
     traces = [
         {
@@ -121,9 +206,12 @@ def get_ticket(
         "ocr_confidence": float(t.ocr_confidence) if t.ocr_confidence is not None else None,
         "fraud_score": t.fraud_score,
         "sentiment": t.sentiment,
+        "sentiment_text": sentiment_text(t.sentiment),
         "status": t.status.value,
+        "status_text": status_text(t.status.value),
         "decision": t.decision.value,
         "outcome": t.decision.value,
+        "outcome_text": outcome_text(t.decision.value),
         "error_code": t.error_code,
         "error_message": t.error_message,
         "created_at": t.created_at.isoformat() if t.created_at else None,
@@ -182,7 +270,9 @@ def approve_ticket(
     return ApproveResponse(
         ticket_id=ticket_id,
         status=TicketStatus.RUNNING.value,
+        status_text=status_text(TicketStatus.RUNNING.value),
         outcome=body.action,
+        outcome_text=outcome_text("APPROVED" if body.action == "APPROVE" else "REJECTED"),
         message="审批已记录，决策流正在恢复",
     )
 

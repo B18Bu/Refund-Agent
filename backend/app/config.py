@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # ===== LLM（OpenAI 兼容适配器）=====
     # LLM_PROVIDER: deepseek | mock   （mock 供本地无密钥 / 单测使用）
     LLM_PROVIDER: str = "deepseek"
-    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_API_KEY: str = ""  # 通过 .env 或环境变量注入，严禁硬编码提交
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     DEEPSEEK_MODEL: str = "deepseek-chat"
 

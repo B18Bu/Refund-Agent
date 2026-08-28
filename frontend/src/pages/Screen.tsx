@@ -21,6 +21,19 @@ function countBy(rows: Row[], key: 'status' | 'outcome'): Record<string, number>
   return m
 }
 
+const statusCN: Record<string, string> = {
+  RUNNING: '处理中',
+  SUSPENDED: '待人工审批',
+  COMPLETED: '已完成',
+}
+const outcomeCN: Record<string, string> = {
+  PENDING: '待定',
+  AUTO_REFUNDED: '自动退赔',
+  APPROVED: '已批准',
+  REJECTED: '已拒绝',
+  FAILED: '处理失败',
+}
+
 export default function Screen() {
   const [rows, setRows] = useState<Row[]>([])
   const nav = useNavigate()
@@ -40,7 +53,7 @@ export default function Screen() {
 
   const barOption = {
     tooltip: {},
-    xAxis: { type: 'category', data: Object.keys(status) },
+    xAxis: { type: 'category', data: Object.keys(status).map((s) => statusCN[s] ?? s) },
     yAxis: { type: 'value' },
     series: [{ type: 'bar', data: Object.values(status), itemStyle: { color: '#5470c6' } }],
   }
@@ -50,7 +63,7 @@ export default function Screen() {
       {
         type: 'pie',
         radius: ['40%', '65%'],
-        data: Object.entries(outcome).map(([name, value]) => ({ name, value })),
+        data: Object.entries(outcome).map(([name, value]) => ({ name: outcomeCN[name] ?? name, value })),
       },
     ],
   }

@@ -1,50 +1,105 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+  ============================================================================
+  SYNC IMPACT REPORT
+  ============================================================================
+  版本变更: (脚手架模板，无版本) → 1.0.0（初始批准）
+  修改的原则: 无（初始创建）
+  新增章节:
+    - Core Principles（6 条，取自《需求与技术方案说明书》§6 核心设计原则）
+    - 技术约束与安全红线（技术栈 + 实现红线 + 安全最小要求）
+    - 开发工作流与质量门禁（交付门槛 + 性能基线 + 可部署可验证）
+    - Governance（修订流程 + 版本策略 + 合规复核）
+  删除章节: 无
+  待跟进 TODO: 无
+  ============================================================================
+-->
+
+# 客诉舆情退赔决策系统 Constitution
+
+> 项目：多 Agent 协同客诉舆情退赔决策系统（MVP）
+> 本宪法是项目治理的最高准则，凌驾于其他实践与个人偏好之上。
+> 上游基线：《需求与技术方案说明书.md》、《核心技术架构深度剖析手册.md》。
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. API 短请求、Worker 长任务
+所有对外接口（建单、审批、查询）只做鉴权、校验、落库与投递消息，MUST 立即返回，不得在
+请求内同步等待 OCR、LLM 或任何长耗时模型推理。
+- 耗时任务 MUST 通过 Redis Streams 投递给 Worker 异步消费。
+- 接口返回 `202 Accepted` 表示「已受理」，最终结果通过详情接口或 SSE 获取。
+- 理由：OCR/LLM 为重资源长耗时任务，同步执行会阻塞连接、耗尽资源、拖垮 P95。
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. 业务事实与图状态分离
+PostgreSQL 是工单业务事实（状态、结果、审批、轨迹）的唯一权威来源；Redis 仅作为队列、
+锁、幂等键与 LangGraph Checkpointer 的可恢复上下文。
+- Redis 的 checkpoint 丢失 MUST NOT 导致业务事实丢失。
+- 理由：可查询、可审计的业务真相与可恢复的执行上下文是两个不同生命周期的概念。
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. 先保守、后自动（宁挂勿错退）
+任何模型不确定性都 MUST 收敛到「转人工审批」，绝不自动放行。
+- OCR 置信度 < 0.60、LLM 超时、非法输出、评分越界等情形 MUST 进入 HUMAN_REVIEW。
+- MVP 无自动拒绝条件；最终拒绝由主管在人工审批中作出。
+- 理由：AI 不可靠时只应增加人工负担，绝不允许错误放行导致资损。
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. 决策规则可测试
+金额、风险、舆情到最终路由的判断 MUST 下沉为无 I/O 的纯函数（`decision_rules.decide`），
+作为决策正确性的唯一来源并 MUST 有单元测试覆盖。
+- Agent 只负责信息采集与归一化，不做业务判断。
+- 理由：确定性路由是资损与合规的关键路径，必须可回归验证。
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. 幂等与互斥缺一不可
+创建防重 MUST 使用幂等键（Redis `SET NX` + DB 联合唯一索引兜底）；审批冲突 MUST 使用
+单工单分布式锁（`SET NX PX` + 比较 token 的 Lua 释放）+ 数据库条件更新兜底。
+- 释放锁 MUST 比较 token 后删除，MUST NOT 无条件 `DEL`。
+- 理由：退款重复执行即资损，并发审批即状态错乱。
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. 审计可回放
+关键节点输入/输出、模型结果、审批人、审批意见与错误码 MUST 可查询，供大屏展示与问题
+排查复用。
+- 审计日志 MUST NOT 保存 Authorization Header、密码或 LLM API Key。
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## 技术约束与安全红线
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### 技术栈
+FastAPI（后端）· PostgreSQL（业务事实）· Redis（队列/锁/幂等/checkpoint）·
+LangGraph（编排）· PaddleOCR（本地 OCR）· OpenAI 兼容 LLM（可替换）· JWT（认证）·
+React + TypeScript + ECharts（前端）· Docker Compose（部署）· Locust（压测）。
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### 实现红线（不可违反）
+1. MUST NOT 在 API 请求中同步执行 OCR 或 LLM。
+2. MUST NOT 把 Redis 当作工单业务事实的唯一来源。
+3. MUST NOT 用无 token 的 `DEL` 释放分布式锁。
+4. MUST NOT 让异常或模型不确定性触发自动通过。
+5. MUST NOT 绕过 Worker 由 API 直接恢复 LangGraph。
+6. MUST NOT 将「记录退款决策」误实现为「调用真实支付退款」。
+
+### 安全最小要求
+- 密码 MUST 用 bcrypt 或 Argon2 哈希，禁止明文、可逆加密或日志输出。
+- `JWT_SECRET`、数据库密码、LLM Key MUST 经环境变量/Secret 注入，禁止提交仓库。
+- 上传文件名 MUST 服务端重命名；上传目录禁止执行权限；下载/预览 MUST 重新校验权限。
+- LLM 提示词 MUST 约束「仅输出规定 JSON/枚举」，输出 MUST 用 Pydantic 校验。
+- OCR 文本与用户输入 MUST 标记为不可信材料，不得拼接为系统指令。
+
+## 开发工作流与质量门禁
+
+### 交付门槛
+- 数据库变更 MUST 用 Alembic 迁移管理，禁止运行时自动建表。
+- 核心决策路由 MUST 有单元测试；关键并发/幂等/审批路径 MUST 有集成测试。
+- 提交前 MUST 通过 E2E-01 ~ E2E-08 最小验收用例。
+
+### 性能基线
+核心短时 API：QPS ≥ 200、P95 < 300ms、错误率 < 0.1%；压测 MUST 使用独立数据集与幂等键，
+并在报告中区分「API 性能」与「真实 AI 推理时延」。
+
+### 可部署可验证
+Docker Compose 一键启动；API/Worker 强杀后 5 秒内按容器策略恢复；Redis 开启 AOF 持久化，
+保证挂起 checkpoint 不因容器重启丢失。
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+本宪法凌驾于其他实践；所有 PR/评审 MUST 校验对上述原则的合规性。
+- 修订流程：任何原则的新增、删除或重定义 MUST 记录在本文档，说明理由并递增版本。
+- 版本策略：MAJOR（原则删除/重定义）、MINOR（新增原则/章节）、PATCH（澄清/措辞）。
+- 合规复核：复杂度 MUST 被论证；违反红线 MUST 在合并前被阻止。
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-08-18 | **Last Amended**: 2026-08-18

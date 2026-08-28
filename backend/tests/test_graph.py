@@ -70,13 +70,69 @@ def test_low_ocr_confidence_forces_human_review(monkeypatch):
     assert snap.next == ("human_review",)
 
 
+def test_ocr_node_resolves_uploaded_storage_key(monkeypatch):
+    """上传 storage_key 必须先解析为绝对路径，再交给 OCR 客户端。"""
+    calls = []
+    monkeypatch.setattr(nodes, "_ocr_client", FakeOcr(text="上传图片", conf=0.9))
+    monkeypatch.setattr(
+        nodes, "resolve_abs_path", lambda key: calls.append(key) or "/data/name.png", raising=False
+    )
+
+    result = nodes.ocr_node({"image_paths": ["uploads/name.png"]})
+
+    assert calls == ["uploads/name.png"]
+    assert nodes._ocr_client.paths == ["/data/name.png"]
+    assert result["ocr_text"] == "上传图片"
+    assert result["ocr_confidence"] == 0.9
+
+
+def test_ocr_node_keeps_legacy_image_path_unchanged(monkeypatch):
+    """既有测试用的普通文件名不是 storage_key，不得重写为上传路径。"""
+    monkeypatch.setattr(nodes, "_ocr_client", FakeOcr(text="本地图片", conf=0.9))
+    monkeypatch.setattr(nodes, "resolve_abs_path", lambda key: "/data/name.png")
+
+    nodes.ocr_node({"image_paths": ["a.png"]})
+
+    assert nodes._ocr_client.paths == ["a.png"]
+
+
+def test_ocr_node_resolves_windows_uploaded_storage_key(monkeypatch):
+    """Windows 生成的反斜杠 storage_key 也必须先解析为绝对路径。"""
+    monkeypatch.setattr(nodes, "_ocr_client", FakeOcr(text="上传图片", conf=0.9))
+    monkeypatch.setattr(
+        nodes, "resolve_abs_path", lambda key: "/data/name.png", raising=False
+    )
+
+    nodes.ocr_node({"image_paths": [r"uploads\name.png"]})
+
+    assert nodes._ocr_client.paths == ["/data/name.png"]
+
+
+def test_ocr_client_exception_falls_back_to_empty_result(monkeypatch):
+    """OCR 客户端异常时回退为空文本和零置信度，避免阻断决策流。"""
+    from app.agents import ocr
+
+    def raise_ocr():
+        raise RuntimeError("OCR unavailable")
+
+    monkeypatch.setattr(ocr, "_get_ocr", raise_ocr)
+
+    result = ocr.OcrClient().extract("a.png")
+
+    assert result.text == ""
+    assert result.confidence == 0.0
+
+
 class FakeOcr:
     def __init__(self, text, conf):
         self._text = text
         self._conf = conf
+        self.paths = []
 
     def extract(self, image_path):
         from app.agents.ocr import OcrResult
+
+        self.paths.append(image_path)
         return OcrResult(text=self._text, confidence=self._conf)
 
 

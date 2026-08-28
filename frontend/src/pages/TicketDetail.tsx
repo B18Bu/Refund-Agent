@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Card, Descriptions, Tag, Space, Button, Typography } from 'antd'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Alert } from 'antd'
+import { getSessionUser } from '../types/auth'
 import client from '../api/client'
 import FlowCanvas from '../components/FlowCanvas'
 import ApprovePanel from '../components/ApprovePanel'
@@ -15,6 +17,9 @@ type Ticket = {
   error_message: string | null
   fraud_score: number | null
   sentiment: string | null
+  sentiment_text: string | null
+  status_text: string
+  outcome_text: string
   ocr_confidence: number | null
   ocr_text: string | null
   traces: { agent_name: string; status: string }[]
@@ -26,12 +31,19 @@ const statusColor: Record<string, string> = {
   COMPLETED: 'green',
 }
 
+// 舆情等级英文→中文兜底（后端已返回 sentiment_text，此处备用）
+const sentimentCN: Record<string, string> = { LOW: '低', MEDIUM: '中', HIGH: '高' }
+
 export default function TicketDetail() {
   const { id } = useParams()
   const nav = useNavigate()
   const [t, setT] = useState<Ticket | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const user = getSessionUser()
 
-  const load = () => client.get(`/tickets/${id}`).then((r) => setT(r.data))
+  const load = () => client.get(`/tickets/${id}`)
+    .then((r) => { setT(r.data); setLoadError(false) })
+    .catch(() => setLoadError(true))
 
   useEffect(() => {
     load()
@@ -61,15 +73,18 @@ export default function TicketDetail() {
     }
   }, [id])
 
+  if (loadError) {
+    return <Alert type="error" showIcon message="无权访问该工单或工单不存在" action={<Button size="small" onClick={() => nav(user?.role === 'sv' ? '/workspace' : '/my-tickets')}>返回列表</Button>} />
+  }
   if (!t) return null
 
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16 }}>
-        <Button onClick={() => nav('/')}>← 返回</Button>
+        <Button onClick={() => nav(user?.role === 'sv' ? '/workspace' : '/my-tickets')}>← 返回</Button>
         <Typography.Title level={4} style={{ margin: 0 }}>工单 {t.ticket_no}</Typography.Title>
-        <Tag color={statusColor[t.status]}>{t.status}</Tag>
-        <Tag color={t.outcome === 'FAILED' ? 'volcano' : 'geekblue'}>{t.outcome}</Tag>
+        <Tag color={statusColor[t.status]}>{t.status_text || t.status}</Tag>
+        <Tag color={t.outcome === 'FAILED' ? 'volcano' : 'geekblue'}>{t.outcome_text || t.outcome}</Tag>
         {t.error_code && <Tag color="volcano">{t.error_code}</Tag>}
       </Space>
 
@@ -77,7 +92,7 @@ export default function TicketDetail() {
         <Descriptions.Item label="金额">¥{t.amount}</Descriptions.Item>
         <Descriptions.Item label="OCR 置信度">{t.ocr_confidence ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="欺诈分">{t.fraud_score ?? '-'}</Descriptions.Item>
-        <Descriptions.Item label="舆情等级">{t.sentiment ?? '-'}</Descriptions.Item>
+        <Descriptions.Item label="舆情等级">{t.sentiment_text ?? sentimentCN[t.sentiment ?? ''] ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="错误信息" span={2}>{t.error_message || '-'}</Descriptions.Item>
       </Descriptions>
 
@@ -89,7 +104,7 @@ export default function TicketDetail() {
         <FlowCanvas traces={t.traces} />
       </Card>
 
-      {t.status === 'SUSPENDED' && (
+      {t.status === 'SUSPENDED' && user?.role === 'sv' && (
         <Card title="人工审批" style={{ marginTop: 16 }}>
           <ApprovePanel ticketId={Number(id)} onDone={load} />
         </Card>
