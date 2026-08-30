@@ -50,9 +50,8 @@ export default function TicketDetail() {
     // A-05：SSE 实时推送（收事件后重取详情），断线降级为 2s 轮询
     let poll: ReturnType<typeof setInterval> | null = null
     const es = new EventSource(`/api/tickets/${id}/events`)
-    es.onmessage = () => {
-      load()
-    }
+    const refresh = () => { void load() }
+    es.addEventListener('ticket_update', refresh)
     es.onerror = () => {
       // SSE 断线 → 启动 2s 轮询降级
       if (!poll) {
@@ -69,6 +68,7 @@ export default function TicketDetail() {
     }
     return () => {
       es.close()
+      es.removeEventListener('ticket_update', refresh)
       if (poll) clearInterval(poll)
     }
   }, [id])
@@ -79,8 +79,8 @@ export default function TicketDetail() {
   if (!t) return null
 
   return (
-    <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 16 }}>
+    <div className="ticket-detail">
+      <Space className="ticket-detail-header" wrap>
         <Button onClick={() => nav(user?.role === 'sv' ? '/workspace' : '/my-tickets')}>← 返回</Button>
         <Typography.Title level={4} style={{ margin: 0 }}>工单 {t.ticket_no}</Typography.Title>
         <Tag color={statusColor[t.status]}>{t.status_text || t.status}</Tag>
@@ -88,7 +88,7 @@ export default function TicketDetail() {
         {t.error_code && <Tag color="volcano">{t.error_code}</Tag>}
       </Space>
 
-      <Descriptions bordered column={3}>
+      <Descriptions bordered column={{ xs: 1, sm: 2, lg: 3 }}>
         <Descriptions.Item label="金额">¥{t.amount}</Descriptions.Item>
         <Descriptions.Item label="OCR 置信度">{t.ocr_confidence ?? '-'}</Descriptions.Item>
         <Descriptions.Item label="欺诈分">{t.fraud_score ?? '-'}</Descriptions.Item>

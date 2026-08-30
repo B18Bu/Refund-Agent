@@ -43,13 +43,20 @@ services:
       REDIS_URL: redis://redis:6379/0
       CHECKPOINTER_BACKEND: postgres
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-secret-in-production}
-      LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       UPLOAD_DIR: /data/uploads
       OCR_DEVICE: cpu
       OCR_LANG: ch
+      OCR_MODEL_DIR: /models/paddleocr
+      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-disabled}
+      CUBESANDBOX_API_URL: ${CUBESANDBOX_API_URL:-http://127.0.0.1:3000}
+      CUBESANDBOX_API_KEY: ${CUBESANDBOX_API_KEY:-}
+      CUBESANDBOX_TEMPLATE_ID: ${CUBESANDBOX_TEMPLATE_ID:-}
+      CUBESANDBOX_PROXY_NODE_IP: ${CUBESANDBOX_PROXY_NODE_IP:-}
+      CUBESANDBOX_PROXY_PORT: ${CUBESANDBOX_PROXY_PORT:-8080}
     volumes:
       - uploads_data:/data/uploads
     depends_on:
@@ -69,15 +76,25 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
       REDIS_URL: redis://redis:6379/0
       CHECKPOINTER_BACKEND: postgres
-      LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       UPLOAD_DIR: /data/uploads
       OCR_DEVICE: cpu
       OCR_LANG: ch
+      OCR_MODEL_DIR: /models/paddleocr
+      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-disabled}
+      CUBESANDBOX_API_URL: ${CUBESANDBOX_API_URL:-http://127.0.0.1:3000}
+      CUBESANDBOX_API_KEY: ${CUBESANDBOX_API_KEY:-}
+      CUBESANDBOX_TEMPLATE_ID: ${CUBESANDBOX_TEMPLATE_ID:-}
+      CUBESANDBOX_PROXY_NODE_IP: ${CUBESANDBOX_PROXY_NODE_IP:-}
+      CUBESANDBOX_PROXY_PORT: ${CUBESANDBOX_PROXY_PORT:-8080}
     volumes:
       - uploads_data:/data/uploads
+      - type: bind
+        source: ${OCR_MODEL_HOST_DIR:-D:/作业/model/PaddleOCR}
+        target: /models/paddleocr
     depends_on:
       postgres:
         condition: service_healthy

@@ -191,7 +191,7 @@ def process(fields: dict) -> None:
                     elif node_name == "sentiment":
                         summary = f"sentiment={node_out.get('sentiment')}"
                     elif node_name == "decision":
-                        summary = node_out.get("decision", "")
+                        summary = f"{node_out.get('decision', '')}: {','.join(node_out.get('decision_reasons', []))}"
                     write_trace(ticket_id, display, status, summary)
                     publish_event(ticket_id, "trace_updated", {"agent_name": display, "status": status})
 

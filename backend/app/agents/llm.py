@@ -7,6 +7,7 @@
 """
 import json
 import logging
+import asyncio
 from typing import Literal
 
 from openai import OpenAI
@@ -88,6 +89,28 @@ class LlmRiskClient:
             timeout=30,
         )
         return resp.choices[0].message.content or ""
+
+    async def score_fraud_async(self, material: str) -> int:
+        """在线程池执行同步客户端，避免阻塞事件循环。"""
+        return await asyncio.to_thread(self.score_fraud, material)
+
+    async def classify_sentiment_async(self, material: str) -> RiskLevel:
+        """在线程池执行同步客户端，避免阻塞事件循环。"""
+        return await asyncio.to_thread(self.classify_sentiment, material)
+
+
+async def score_risk_parallel(client: LlmRiskClient, material: str) -> tuple[int, RiskLevel]:
+    """并行执行欺诈和舆情分析，单项异常不会取消另一项。"""
+    fraud, sentiment = await asyncio.gather(
+        client.score_fraud_async(material),
+        client.classify_sentiment_async(material),
+        return_exceptions=True,
+    )
+    fraud_value = 100 if isinstance(fraud, Exception) else max(0, min(100, int(fraud)))
+    sentiment_value: RiskLevel = "HIGH" if isinstance(sentiment, Exception) else (
+        sentiment if sentiment in ("LOW", "MEDIUM", "HIGH") else "HIGH"
+    )
+    return fraud_value, sentiment_value
 
 
 def _mock_fraud_score(material: str) -> int:

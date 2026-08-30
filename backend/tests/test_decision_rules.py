@@ -1,4 +1,23 @@
-from app.agents.decision_rules import decide
+from app.agents.decision_rules import decide, decide_with_reasons
+
+
+def test_decision_reasons_explain_auto_refund():
+    result = decide_with_reasons(128.0, 0.95, 20, "LOW")
+
+    assert result.route == "AUTO_REFUND"
+    assert result.reasons == [
+        "amount_within_limit",
+        "ocr_confidence_pass",
+        "fraud_pass",
+        "sentiment_low",
+    ]
+
+
+def test_decision_reasons_explain_first_blocking_rule():
+    result = decide_with_reasons(128.0, 0.95, 80, "HIGH")
+
+    assert result.route == "HUMAN_REVIEW"
+    assert result.reasons == ["fraud_score_at_threshold"]
 
 
 def test_auto_refund_low_risk():

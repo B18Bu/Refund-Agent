@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Table, Button, InputNumber, Tag, message, Space, Typography, Modal, Upload, Form, Empty } from 'antd'
+import { Alert, Table, Button, InputNumber, Tag, message, Typography, Modal, Upload, Form, Empty } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd'
 import client from '../api/client'
@@ -99,12 +99,17 @@ export default function Dashboard({ title = '退赔工单工作台', showScreen 
   ]
 
   return (
-    <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 16 }}>
-        <Typography.Title level={4} style={{ margin: 0 }}>{title}</Typography.Title>
-        <Button type="primary" onClick={() => setModalOpen(true)}>新建退款申请</Button>
-        {showScreen && <Button onClick={() => nav('/screen')}>进入大屏</Button>}
-      </Space>
+    <div>
+      <div className="page-header">
+        <div>
+          <Typography.Title level={3} style={{ margin: 0 }}>{title}</Typography.Title>
+          <Typography.Text type="secondary">统一查看申请状态、风险结果和处理异常</Typography.Text>
+        </div>
+        <div className="page-header__actions">
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>新建退款申请</Button>
+          {showScreen && <Button onClick={() => nav('/screen')}>进入大屏</Button>}
+        </div>
+      </div>
 
       <Modal
         title="新建退款申请"
@@ -147,15 +152,26 @@ export default function Dashboard({ title = '退赔工单工作台', showScreen 
           style={{ marginBottom: 16 }}
         />
       )}
-      <Table
-        rowKey="id"
-        loading={listLoading}
-        locale={{ emptyText: <Empty description="暂无退款申请" /> }}
-        dataSource={rows}
-        columns={cols}
-        pagination={{ pageSize: 10 }}
-        onRow={(r) => ({ onClick: () => nav(`/ticket/${r.id}`), style: { cursor: 'pointer' } })}
-      />
+      <div className="surface">
+        <Table
+          rowKey="id"
+          loading={listLoading}
+          locale={{ emptyText: <Empty description="暂无退款申请" /> }}
+          dataSource={rows}
+          columns={cols}
+          scroll={{ x: 900 }}
+          pagination={{ pageSize: 10 }}
+          onRow={(r) => ({
+            onClick: () => nav(`/ticket/${r.id}`),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter') nav(`/ticket/${r.id}`)
+            },
+            tabIndex: 0,
+            'aria-label': `查看工单 ${r.ticket_no}`,
+            style: { cursor: 'pointer' },
+          })}
+        />
+      </div>
     </div>
   )
 }

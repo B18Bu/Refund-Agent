@@ -25,7 +25,8 @@ class Settings(BaseSettings):
 
     # ===== LLM（OpenAI 兼容适配器）=====
     # LLM_PROVIDER: deepseek | mock   （mock 供本地无密钥 / 单测使用）
-    LLM_PROVIDER: str = "deepseek"
+    # 本地默认 Mock，避免没有外部密钥时所有订单因保守兜底而转人工；生产环境显式配置 deepseek。
+    LLM_PROVIDER: str = "mock"
     DEEPSEEK_API_KEY: str = ""  # 通过 .env 或环境变量注入，严禁硬编码提交
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     DEEPSEEK_MODEL: str = "deepseek-chat"
@@ -48,7 +49,7 @@ class Settings(BaseSettings):
     OCR_DEVICE: str = "cpu"  # cpu | gpu
     OCR_USE_ANGLE_CLS: bool = True
     OCR_LANG: str = "ch"
-    OCR_MODEL_DIR: str = ""  # 留空则使用 PaddleOCR 默认自动下载模型
+    OCR_MODEL_DIR: str = ""  # 必须显式配置；模型缺失时禁止隐式下载
 
     # ===== 文件上传 =====
     UPLOAD_DIR: str = "data/uploads"
@@ -57,6 +58,14 @@ class Settings(BaseSettings):
 
     # ===== 事件推送 =====
     EVENT_CHANNEL_PREFIX: str = "events:ticket"
+
+    # ===== CubeSandbox（未完整配置时禁止创建远程沙箱）=====
+    SANDBOX_PROVIDER: str = "disabled"
+    CUBESANDBOX_API_URL: str = "http://127.0.0.1:3000"
+    CUBESANDBOX_API_KEY: str = ""
+    CUBESANDBOX_TEMPLATE_ID: str = ""
+    CUBESANDBOX_PROXY_NODE_IP: str = ""
+    CUBESANDBOX_PROXY_PORT: int = 8080
 
 
 settings = Settings()

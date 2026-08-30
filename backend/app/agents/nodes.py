@@ -5,7 +5,7 @@
 """
 from langgraph.types import interrupt
 
-from app.agents.decision_rules import decide
+from app.agents.decision_rules import decide_with_reasons
 from app.agents.llm import LlmRiskClient
 from app.agents.ocr import OcrClient
 from app.agents.state import GraphState
@@ -51,14 +51,15 @@ def sentiment_node(state: GraphState) -> GraphState:
 
 
 def decision_node(state: GraphState) -> GraphState:
-    d = decide(
+    result = decide_with_reasons(
         float(state["amount"]),
         float(state.get("ocr_confidence", 0.0)),
         int(state.get("fraud_score", 0)),
         str(state.get("sentiment", "LOW")),
     )
-    state["decision"] = d
-    if d == "AUTO_REFUND":
+    state["decision"] = result.route
+    state["decision_reasons"] = result.reasons
+    if result.route == "AUTO_REFUND":
         state["final_decision"] = "AUTO_REFUNDED"
     return state
 

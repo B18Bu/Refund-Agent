@@ -7,6 +7,8 @@ import {
   MonitorOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
+  ReloadOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import client from '../api/client'
@@ -50,9 +52,9 @@ export default function AppShell() {
 
   const items = user.role === 'sv'
     ? [
-        { key: '/monitor', icon: <MonitorOutlined />, label: <Badge count={counts.failed} offset={[8, 0]} style={{ color: 'inherit' }}>实时监控</Badge> },
+        { key: '/monitor', icon: <MonitorOutlined />, label: <Badge className="app-nav-badge" styles={{ root: { color: 'inherit' } }} count={counts.failed} offset={[8, 0]}>实时监控</Badge> },
         { key: '/workspace', icon: <DashboardOutlined />, label: '退款工作台' },
-        { key: '/approvals', icon: <SafetyCertificateOutlined />, label: <Badge count={counts.pending} color="#fa8c16" offset={[8, 0]} style={{ color: 'inherit' }}>待人工审批</Badge> },
+        { key: '/approvals', icon: <SafetyCertificateOutlined />, label: <Badge className="app-nav-badge" styles={{ root: { color: 'inherit' } }} count={counts.pending} color="#d46b08" offset={[8, 0]}>待人工审批</Badge> },
         { key: '/process', icon: <FileTextOutlined />, label: '退款流程总览' },
         { key: '/screen', icon: <FundOutlined />, label: '数据大屏' },
       ]
@@ -69,22 +71,22 @@ export default function AppShell() {
   }
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="dark" breakpoint="lg">
-        <div style={{ color: '#fff', fontWeight: 700, padding: collapsed ? '20px 8px' : '20px 18px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+    <Layout className="app-shell">
+      <Sider className="app-sider" collapsible collapsed={collapsed} collapsedWidth={64} onCollapse={setCollapsed} theme="dark" breakpoint="lg">
+        <div className="app-brand" style={{ paddingInline: collapsed ? 8 : 18 }}>
           退赔决策控制台
         </div>
-        <Menu theme="dark" mode="inline" selectedKeys={currentKey ? [currentKey] : []} items={items} onClick={({ key }) => nav(key)} />
+        <Menu className="app-nav" aria-label="主导航" theme="dark" mode="inline" selectedKeys={currentKey ? [currentKey] : []} items={items} onClick={({ key }) => nav(key)} />
       </Sider>
-      <Layout>
-        <Header style={{ background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 24px', borderBottom: '1px solid #f0f0f0' }}>
+      <Layout className="app-main">
+        <Header className="app-header">
           <Tag color={user.role === 'sv' ? 'blue' : 'green'}>{user.role === 'sv' ? '主管' : '客服'}</Tag>
-          <Space>
-            <Button onClick={() => window.dispatchEvent(new Event('refund-refresh'))}>刷新数据</Button>
-            <Button onClick={logout}>退出登录</Button>
+          <Space className="app-header__actions">
+            <Button aria-label="刷新数据" icon={<ReloadOutlined />} onClick={() => window.dispatchEvent(new Event('refund-refresh'))}><span className="app-header__action-label">刷新数据</span></Button>
+            <Button aria-label="退出登录" icon={<LogoutOutlined />} onClick={logout}><span className="app-header__action-label">退出登录</span></Button>
           </Space>
         </Header>
-        <Content style={{ padding: 24, minWidth: 0, background: '#f5f7fa' }}><Outlet /></Content>
+        <Content className="app-content"><Outlet /></Content>
       </Layout>
     </Layout>
   )

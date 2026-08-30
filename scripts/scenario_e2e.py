@@ -5,15 +5,47 @@
 用法：python scripts/scenario_e2e.py [BASE_URL]
 """
 import json
+import mimetypes
+import pathlib
 import sys
 import threading
 import time
+import uuid
 import urllib.error
 import urllib.request
 from collections import Counter
 from PIL import Image, ImageDraw, ImageFont
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
+BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8001"
+
+
+def build_multipart_body(boundary: str, amount: float, image_path: pathlib.Path) -> bytes:
+    data = image_path.read_bytes()
+    content_type = mimetypes.guess_type(image_path.name)[0] or "application/octet-stream"
+    parts = [
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"amount\"\r\n\r\n{amount}\r\n".encode(),
+        (
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"files\"; filename=\"{image_path.name}\"\r\n"
+            f"Content-Type: {content_type}\r\n\r\n"
+        ).encode() + data + b"\r\n",
+        f"--{boundary}--\r\n".encode(),
+    ]
+    return b"".join(parts)
+
+
+def submit_ticket_with_file(amount: float, image_path: pathlib.Path, token: str, headers=None):
+    boundary = f"----refund-{uuid.uuid4().hex}"
+    request = urllib.request.Request(
+        BASE + "/api/tickets/with-files",
+        data=build_multipart_body(boundary, amount, image_path),
+        method="POST",
+    )
+    request.add_header("Authorization", "Bearer " + token)
+    request.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    for key, value in (headers or {}).items():
+        request.add_header(key, value)
+    with urllib.request.urlopen(request) as response:
+        return response.status, json.loads(response.read().decode())
 
 
 def req(method, path, payload=None, token=None, hdrs=None):
@@ -54,8 +86,7 @@ def main() -> int:
 
     # ===== 场景一：350 元 + 破损发票 → 挂起 → 主管 APPROVE → APPROVED =====
     make_image("invoice350.png", "破损商品退款申请", "金额350.00元")
-    st, t = req("POST", "/api/tickets",
-                {"amount": 350.0, "image_paths": ["D:/Claude Code/舆情多Agent/invoice350.png"]}, tok)
+    st, t = submit_ticket_with_file(350.0, pathlib.Path("invoice350.png"), tok)
     tid1 = t["ticket_id"]
     time.sleep(12)  # Worker 真实 OCR
     st, d = req("GET", f"/api/tickets/{tid1}", token=tok)
@@ -74,9 +105,7 @@ def main() -> int:
     # ===== 场景二：128 元 + 清晰商品图 → 自动退款 =====
     make_image("goods128.png", "正品全新商品", "订单号128元")
     idem = f"s2-{int(time.time())}"
-    st, t = req("POST", "/api/tickets",
-                {"amount": 128.0, "image_paths": ["D:/Claude Code/舆情多Agent/goods128.png"]}, tok,
-                {"X-Idempotency-Key": idem})
+    st, t = submit_ticket_with_file(128.0, pathlib.Path("goods128.png"), tok, {"X-Idempotency-Key": idem})
     tid2 = t["ticket_id"]
     # 幂等重放
     st2, t2 = req("POST", "/api/tickets", {"amount": 999.0}, tok, {"X-Idempotency-Key": idem})

@@ -77,22 +77,22 @@ export default function Screen() {
   }
 
   return (
-    <div style={{ background: '#001529', minHeight: '100vh', padding: 24, color: '#fff' }}>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h2 style={{ color: '#fff', margin: 0 }}>客诉舆情退赔决策 · 实时大屏</h2>
+    <div className="screen-page">
+      <Space className="screen-header" wrap>
+        <h2>客诉舆情退赔决策 · 实时大屏</h2>
         <Button onClick={() => nav('/')}>返回工作台</Button>
       </Space>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+      <div className="screen-stats">
         <div style={box}><div style={{ fontSize: 32 }}>{rows.length}</div><div>工单总数</div></div>
         <div style={box}><div style={{ fontSize: 32 }}>{pending}</div><div>待人工审批</div></div>
         <div style={box}><div style={{ fontSize: 32 }}>{avgFraud.toFixed(1)}</div><div>平均欺诈分</div></div>
         <div style={box}><div style={{ fontSize: 32 }}>¥{totalAmount.toFixed(2)}</div><div>申请总金额</div></div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-        <div style={{ background: '#fff', borderRadius: 8, padding: 8 }}>
+      <div className="screen-charts">
+        <div className="screen-chart">
           <ReactECharts option={barOption} style={{ height: 320 }} />
         </div>
-        <div style={{ background: '#fff', borderRadius: 8, padding: 8 }}>
+        <div className="screen-chart">
           <ReactECharts option={pieOption} style={{ height: 320 }} />
         </div>
       </div>

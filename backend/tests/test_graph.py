@@ -116,6 +116,7 @@ def test_ocr_client_exception_falls_back_to_empty_result(monkeypatch):
         raise RuntimeError("OCR unavailable")
 
     monkeypatch.setattr(ocr, "_get_ocr", raise_ocr)
+    monkeypatch.setattr(ocr.os.path, "isfile", lambda _: True)
 
     result = ocr.OcrClient().extract("a.png")
 

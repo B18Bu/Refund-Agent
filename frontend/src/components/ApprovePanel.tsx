@@ -20,8 +20,8 @@ export default function ApprovePanel({ ticketId, onDone }: { ticketId: number; o
   }
 
   return (
-    <Space>
-      <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="审批意见（可选）" style={{ width: 240 }} />
+    <Space className="approval-actions" wrap>
+      <Input className="approval-actions__comment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="审批意见（可选）" aria-label="审批意见" />
       <Button type="primary" loading={loading} onClick={() => act('APPROVE')}>APPROVE 同意</Button>
       <Button danger loading={loading} onClick={() => act('REJECT')}>REJECT 拒绝</Button>
     </Space>
