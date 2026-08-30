@@ -32,7 +32,7 @@
 - 修改：`backend/app/models.py`
 - 测试：`backend/tests/test_evaluation_model.py`
 
-- [ ] **步骤 1：写失败测试，证明 run_id 唯一且评测与工单关联**
+- [x] **步骤 1：写失败测试，证明 run_id 唯一且评测与工单关联**
 
 ```python
 import pytest
@@ -48,21 +48,21 @@ def test_evaluation_run_is_unique_per_start(db_session):
         db_session.commit()
 ```
 
-- [ ] **步骤 2：运行红灯**
+- [x] **步骤 2：运行红灯**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests/test_evaluation_model.py -q`
 预期：FAIL，`app.evaluation.models` 不存在。
 
-- [ ] **步骤 3：实现模型和迁移**
+- [x] **步骤 3：实现模型和迁移**
 
 模型必须包含规格中的 Token、三维评分、`latency_breakdown`、脱敏摘要和错误码；`run_id` 建唯一索引，`ticket_id` 外键带普通索引。SQL 使用 `CREATE TABLE IF NOT EXISTS` 和 `CREATE UNIQUE INDEX IF NOT EXISTS`，不得修改现有表字段。
 
-- [ ] **步骤 4：运行绿灯并检查 SQL**
+- [x] **步骤 4：运行绿灯并检查 SQL**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests/test_evaluation_model.py -q`
 预期：PASS。
 
-- [ ] **步骤 5：提交**
+- [x] **步骤 5：提交**
 
 ```powershell
 git add backend/migrations/20260830_add_agent_evaluation_runs.sql backend/app/evaluation backend/app/models.py backend/tests/test_evaluation_model.py

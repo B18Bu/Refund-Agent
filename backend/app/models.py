@@ -67,6 +67,7 @@ class Ticket(Base):
 
     approvals: Mapped[list["Approval"]] = relationship(back_populates="ticket")
     traces: Mapped[list["AgentTrace"]] = relationship(back_populates="ticket")
+    evaluations: Mapped[list["AgentEvaluationRun"]] = relationship(back_populates="ticket")
 
 
 class Approval(Base):
@@ -95,3 +96,7 @@ class AgentTrace(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     ticket: Mapped[Ticket] = relationship(back_populates="traces")
+
+
+# 独立模型仍需在应用启动时注册到 SQLAlchemy metadata；生产建表只执行显式迁移。
+from app.evaluation.models import AgentEvaluationRun  # noqa: E402,F401
