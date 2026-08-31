@@ -15,6 +15,8 @@ const sourceLabels: Record<MeasurementType, string> = {
 
 const formatNumber = (value: number | null) => value == null ? '—' : value.toLocaleString('zh-CN', { maximumFractionDigits: 1 })
 const formatRatio = (value: number | null) => value == null ? '—' : `${(value * 100).toFixed(1)}%`
+const tokenChange = (value: number | null) => value == null ? '—' : value < 0 ? `增加 ${formatNumber(Math.abs(value))}` : value > 0 ? `减少 ${formatNumber(value)}` : '持平 0'
+const ratioChange = (value: number | null) => value == null ? '—' : value < 0 ? `增幅 ${formatRatio(Math.abs(value))}` : value > 0 ? `降幅 ${formatRatio(value)}` : '持平 0%'
 
 export default function Evaluations() {
   const [summary, setSummary] = useState<EvaluationSummary | null>(null)
@@ -69,16 +71,20 @@ export default function Evaluations() {
     { title: '工单', dataIndex: 'ticket_id', render: (value) => `#${value}` },
     { title: '状态', dataIndex: 'evaluation_status', render: (value) => <Tag color={value === 'PASSED' ? 'success' : 'warning'}>{value}</Tag> },
     { title: '当前 Token', dataIndex: 'current_total_tokens', render: formatNumber },
-    { title: '节省', dataIndex: 'saved_tokens', render: (value) => <Text type={value != null && value < 0 ? 'danger' : undefined}>{formatNumber(value)}</Text> },
-    { title: '降幅', dataIndex: 'reduction_ratio', render: (value) => formatRatio(value) },
+    { title: 'Token 变化', dataIndex: 'saved_tokens', render: (value) => <Text type={value != null && value < 0 ? 'danger' : undefined}>{tokenChange(value)}</Text> },
+    { title: '比例变化', dataIndex: 'reduction_ratio', render: (value) => <Text type={value != null && value < 0 ? 'danger' : undefined}>{ratioChange(value)}</Text> },
     { title: '来源', dataIndex: 'measurement_type', render: (value: MeasurementType) => sourceLabels[value] },
   ]
 
   if (loading) return <Skeleton active paragraph={{ rows: 10 }} />
   if (error) return <Alert type="error" showIcon message="评测数据加载失败" description="审批与退赔流程不受影响，请稍后重试。" action={<Button onClick={load}>重新加载</Button>} />
-  if (!summary || summary.evaluation_count === 0) {
-    return <Card><Empty description="暂无评测数据" /><Paragraph type="secondary">新工单完成首次 START 决策后将在此展示。</Paragraph></Card>
-  }
+  if (!summary) return <Card><Empty description="暂无评测数据" /></Card>
+
+  const hasEvaluations = summary.evaluation_count > 0
+  const sourceSummary = summary.measurement_types.map((type) => sourceLabels[type]).join(' / ') || '暂无真实工单数据'
+  const goldenValue = summary.golden.passed
+    ? `通过 ${summary.golden.case_count ?? 0}/${summary.golden.case_count ?? 0}`
+    : `未通过 · 得分 ${summary.golden.score ?? 0}/${summary.golden.max_score ?? 0}`
 
   const scoreItems = [
     ['正确性', summary.average_scores.correctness],
@@ -98,35 +104,41 @@ export default function Evaluations() {
         </div>
       </header>
 
-      <section className="evaluation-kpis" aria-label="Token 核心指标">
-        <Card><Statistic title="当前平均 Token" value={formatNumber(summary.avg_current_input_tokens)} /></Card>
-        <Card><Statistic title="旧版平均基线" value={formatNumber(summary.avg_baseline_input_tokens)} /></Card>
-        <Card><Statistic title="平均减少数量" value={formatNumber(summary.avg_saved_tokens)} /></Card>
-        <Card><Statistic title="平均降幅" value={formatRatio(summary.avg_reduction_ratio)} /></Card>
-      </section>
+      {hasEvaluations ? (
+        <>
+          <section className="evaluation-kpis" aria-label="Token 核心指标">
+            <Card><Statistic title="当前平均 Token" value={formatNumber(summary.avg_current_input_tokens)} /><Text type="secondary">口径：{sourceSummary}</Text></Card>
+            <Card><Statistic title="旧版平均基线" value={formatNumber(summary.avg_baseline_input_tokens)} /><Text type="secondary">口径：离线估算</Text></Card>
+            <Card><Statistic title="平均 Token 变化" value={tokenChange(summary.avg_saved_tokens)} /><Text type="secondary">口径：{sourceSummary}</Text></Card>
+            <Card><Statistic title="平均比例变化" value={ratioChange(summary.avg_reduction_ratio)} /><Text type="secondary">口径：{sourceSummary}</Text></Card>
+          </section>
 
-      <section className="evaluation-chart-grid">
-        <Card title="Token 前后对比" className="evaluation-card">
-          <figure aria-label="Token 前后对比柱状图">
-            <ReactECharts option={comparisonOption} style={{ height: 280 }} />
-            <figcaption><strong>Token 数值明细：</strong>旧版 {formatNumber(summary.avg_baseline_input_tokens)}，当前 {formatNumber(summary.avg_current_input_tokens)}，减少 {formatNumber(summary.avg_saved_tokens)}（{formatRatio(summary.avg_reduction_ratio)}）。</figcaption>
-          </figure>
-        </Card>
-        <Card title="近 7 日趋势" className="evaluation-card">
-          <figure aria-label="近 7 日 Token 趋势图">
-            <ReactECharts option={trendOption} style={{ height: 280 }} />
-            <figcaption>
-              <strong>近 7 日数值：</strong>
-              <ul className="evaluation-data-list">
-                {summary.trend.map((point) => <li key={point.date}>{point.date}：基线 {formatNumber(point.baseline_input_tokens)}，当前 {formatNumber(point.current_input_tokens)}，样本 {point.count}</li>)}
-              </ul>
-            </figcaption>
-          </figure>
-        </Card>
-      </section>
+          <section className="evaluation-chart-grid">
+            <Card title="Token 前后对比" className="evaluation-card">
+              <figure aria-label="Token 前后对比柱状图">
+                <ReactECharts option={comparisonOption} style={{ height: 280 }} />
+                <figcaption><strong>Token 数值明细：</strong>旧版 {formatNumber(summary.avg_baseline_input_tokens)}，当前 {formatNumber(summary.avg_current_input_tokens)}，{tokenChange(summary.avg_saved_tokens)}（{ratioChange(summary.avg_reduction_ratio)}）。</figcaption>
+              </figure>
+            </Card>
+            <Card title="近 7 日趋势" className="evaluation-card">
+              <figure aria-label="近 7 日 Token 趋势图">
+                <ReactECharts option={trendOption} style={{ height: 280 }} />
+                <figcaption>
+                  <strong>近 7 日数值：</strong>
+                  <ul className="evaluation-data-list">
+                    {summary.trend.map((point) => <li key={point.date}>{point.date}：基线 {formatNumber(point.baseline_input_tokens)}，当前 {formatNumber(point.current_input_tokens)}，样本 {point.count}</li>)}
+                  </ul>
+                </figcaption>
+              </figure>
+            </Card>
+          </section>
+        </>
+      ) : (
+        <Card><Empty description="暂无评测数据" /><Paragraph type="secondary">新工单完成首次 START 决策后将在此展示；Golden 规则回归仍可独立查看。</Paragraph></Card>
+      )}
 
       <section className="evaluation-secondary-grid">
-        <Card title="三维平均评分">
+        {hasEvaluations && <Card title="三维平均评分">
           <div className="evaluation-scores">
             {scoreItems.map(([label, value]) => (
               <div key={label}>
@@ -136,15 +148,15 @@ export default function Evaluations() {
             ))}
           </div>
           <Text type="secondary">评分完整度：{summary.data_completeness.score_records}/{summary.evaluation_count}</Text>
-        </Card>
+        </Card>}
         <Card title="Golden Dataset">
           {summary.golden.available ? (
-            <Statistic title="规则回归" value={`${summary.golden.passed ? '通过' : '未通过'} ${summary.golden.case_count ?? 0}/${summary.golden.case_count ?? 0}`} />
+            <Statistic title="规则回归" value={goldenValue} />
           ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Golden 报告暂不可用" />}
         </Card>
       </section>
 
-      <Card title="最近评测记录" className="evaluation-table-card">
+      {hasEvaluations && <Card title="最近评测记录" className="evaluation-table-card">
         <Table<EvaluationRecord>
           rowKey="id"
           columns={columns}
@@ -160,7 +172,7 @@ export default function Evaluations() {
             },
           })}
         />
-      </Card>
+      </Card>}
     </main>
   )
 }

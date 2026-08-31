@@ -288,7 +288,7 @@ test('工单评测详情仅为主管请求并保留审批区', () => {
 
 - [x] **步骤 3：实现下钻组件**
 
-主管详情加载 `/tickets/{id}/evaluation`；展示基线输入、当前输入、输出/总 Token、可为负的节省量、三维依据、阶段耗时、Prompt 版本和来源标签。失败/缺失只影响本卡片；原审批卡片继续渲染和操作。640px 以下单列，数值不只靠颜色表达。
+主管详情加载 `/tickets/{id}/evaluation`；展示基线输入、当前输入、输出/总 Token、可为负的节省量、三维依据、当前串行图实际产生的 OCR/风控/舆情/决策阶段耗时、Prompt 版本和来源标签。不得构造并行耗时；Fraud/Sentiment 拓扑并行化另行实施。失败/缺失只影响本卡片；原审批卡片继续渲染和操作。640px 以下单列，数值不只靠颜色表达。
 
 - [x] **步骤 4：运行绿灯和完整前端构建**
 
@@ -309,31 +309,31 @@ git commit -m "feat: 展示单笔工单评测成本"
 - 修改：`docs/agent评测优化方案.md`（只更新本功能完成状态和验证证据）
 - 创建：`docs/evidence/agent-evaluation-visualization.md`
 
-- [ ] **步骤 1：运行完整后端门禁**
+- [x] **步骤 1：运行完整后端门禁**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m compileall -q backend scripts`
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests -q`
 运行：`D:\anaconda\envs\refuse_agent\python.exe scripts/evaluate_golden.py`
 预期：无跳过、无失败，Golden 10/10 通过。
 
-- [ ] **步骤 2：运行完整前端门禁**
+- [x] **步骤 2：运行完整前端门禁**
 
 运行：`node --test frontend/tests/*.test.mjs`
 运行：`npm --prefix frontend run build`
 预期：全部成功；记录 bundle warning，但不得描述为测试失败。
 
-- [ ] **步骤 3：在副本数据库演练迁移**
+- [x] **步骤 3：在副本数据库演练迁移**
 
 运行：`Get-Content backend/migrations/20260830_add_agent_evaluation_runs.sql | docker compose exec -T postgres psql -U postgres -d refund_test`
 预期：首次和第二次执行均成功，现有表数据不变。禁止先在生产库直接运行。
 
-- [ ] **步骤 4：重建服务并做角色验收**
+- [x] **步骤 4：重建服务并做角色验收**
 
 运行：`docker compose build api worker frontend`
 运行：`docker compose up -d --no-deps --force-recreate api worker frontend`
 验证：主管能访问 `/evaluations` 和单笔评测；客服接口返回 403；评测异常时审批仍可用；375px 无横向页面滚动。
 
-- [ ] **步骤 5：记录证据并提交**
+- [x] **步骤 5：记录证据并提交**
 
 `docs/evidence/agent-evaluation-visualization.md` 必须记录命令、退出码、测试数量、Golden 结果、迁移两次结果、主管/客服 HTTP 状态和浏览器尺寸；任何未执行项目明确标为未验证。
 

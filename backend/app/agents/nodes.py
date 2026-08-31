@@ -28,6 +28,7 @@ def intake(state: GraphState) -> GraphState:
 
 
 def ocr_node(state: GraphState) -> GraphState:
+    started_at = time.perf_counter()
     paths = state.get("image_paths", [])
     texts, scores = [], []
     for p in paths:
@@ -38,6 +39,9 @@ def ocr_node(state: GraphState) -> GraphState:
     state["ocr_text"] = "\n".join(texts)
     # 多图取最小置信度（木桶原则）；无图/识别失败 → 0
     state["ocr_confidence"] = min(scores) if scores else 0.0
+    state.setdefault("latency_breakdown", {})["ocr_ms"] = (
+        time.perf_counter() - started_at
+    ) * 1000
     return state
 
 
@@ -85,6 +89,7 @@ def _legacy_usage(input_text: str, output_text: str) -> UsageSnapshot:
 
 
 def decision_node(state: GraphState) -> GraphState:
+    started_at = time.perf_counter()
     result = decide_with_reasons(
         float(state["amount"]),
         float(state.get("ocr_confidence", 0.0)),
@@ -95,6 +100,9 @@ def decision_node(state: GraphState) -> GraphState:
     state["decision_reasons"] = result.reasons
     if result.route == "AUTO_REFUND":
         state["final_decision"] = "AUTO_REFUNDED"
+    state.setdefault("latency_breakdown", {})["decision_ms"] = (
+        time.perf_counter() - started_at
+    ) * 1000
     return state
 
 

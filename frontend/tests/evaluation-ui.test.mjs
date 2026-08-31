@@ -36,3 +36,28 @@ test('工单评测详情仅为主管请求并保留审批区', () => {
   assert.match(evaluation, /基线输入 Token/)
   assert.match(evaluation, /阶段耗时/)
 })
+
+test('工单刷新后必须同步重新请求评测详情', () => {
+  const detail = read('pages/TicketDetail.tsx')
+  const evaluation = read('components/EvaluationDetail.tsx')
+  assert.match(detail, /EvaluationDetail[^>]*refreshVersion=/s)
+  assert.match(evaluation, /refreshVersion/)
+  assert.match(evaluation, /\[ticketId, refreshVersion\]/)
+})
+
+test('无真实评测时仍展示 Golden 且失败文案不伪造通过数', () => {
+  const page = read('pages/Evaluations.tsx')
+  assert.doesNotMatch(page, /evaluation_count === 0\)[\s\S]*return/)
+  assert.match(page, /golden\.score/)
+  assert.match(page, /golden\.max_score/)
+})
+
+test('Token 增加必须用文字和绝对值表达增幅', () => {
+  const page = read('pages/Evaluations.tsx')
+  const detail = read('components/EvaluationDetail.tsx')
+  for (const source of [page, detail]) {
+    assert.match(source, /增加/)
+    assert.match(source, /增幅/)
+    assert.match(source, /Math\.abs/)
+  }
+})

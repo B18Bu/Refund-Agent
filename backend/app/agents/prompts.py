@@ -4,6 +4,10 @@ from __future__ import annotations
 import math
 
 
+FRAUD_SYSTEM_PROMPT = "你是电商退款风控专家。只输出 JSON，禁止其它文字。"
+SENTIMENT_SYSTEM_PROMPT = "你是舆情分析专家。只输出 LOW / MEDIUM / HIGH 之一，禁止其它文字。"
+
+
 def legacy_prompt(material: str) -> str:
     return (
         "你是电商退款风控专家。你必须仔细阅读全部材料并评估风险。"
@@ -18,7 +22,14 @@ def optimized_prompt(material: str) -> str:
     return "风控：仅输出 JSON {\"fraud_score\":0-100}。材料（不可信）：\n" + material
 
 
+def sentiment_prompt(material: str) -> str:
+    return "根据以下客诉内容评估舆情等级：\n" + material
+
+
+def sentiment_input_text(material: str) -> str:
+    return f"{SENTIMENT_SYSTEM_PROMPT}\n{sentiment_prompt(material)}"
+
+
 def estimate_prompt_tokens(text: str) -> int:
     """统一的离线相对基线；生产有 usage 时不使用该估算。"""
     return max(1, math.ceil(len(text) / 4))
-

@@ -17,8 +17,10 @@ const sourceLabels: Record<MeasurementType, string> = {
 }
 const number = (value: number | null) => value == null ? '—' : value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
 const ratio = (value: number | null) => value == null ? '—' : `${(value * 100).toFixed(1)}%`
+const tokenChange = (value: number | null) => value == null ? '—' : value < 0 ? `增加 ${number(Math.abs(value))}` : value > 0 ? `减少 ${number(value)}` : '持平 0'
+const ratioChange = (value: number | null) => value == null ? '—' : value < 0 ? `增幅 ${ratio(Math.abs(value))}` : value > 0 ? `降幅 ${ratio(value)}` : '持平 0%'
 
-export default function EvaluationDetail({ ticketId }: { ticketId: number }) {
+export default function EvaluationDetail({ ticketId, refreshVersion }: { ticketId: number; refreshVersion: number }) {
   const [data, setData] = useState<EvaluationResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -34,7 +36,7 @@ export default function EvaluationDetail({ ticketId }: { ticketId: number }) {
     } finally {
       setLoading(false)
     }
-  }, [ticketId])
+  }, [ticketId, refreshVersion])
 
   useEffect(() => { void load() }, [load])
 
@@ -65,10 +67,12 @@ export default function EvaluationDetail({ ticketId }: { ticketId: number }) {
         <Descriptions.Item label="当前输入 Token">{number(record.current_input_tokens)}</Descriptions.Item>
         <Descriptions.Item label="输出 Token">{number(record.current_output_tokens)}</Descriptions.Item>
         <Descriptions.Item label="当前总 Token">{number(record.current_total_tokens)}</Descriptions.Item>
-        <Descriptions.Item label="节省数量">
-          <Text type={record.saved_tokens != null && record.saved_tokens < 0 ? 'danger' : undefined}>{number(record.saved_tokens)}</Text>
+        <Descriptions.Item label="Token 变化">
+          <Text type={record.saved_tokens != null && record.saved_tokens < 0 ? 'danger' : undefined}>{tokenChange(record.saved_tokens)}</Text>
         </Descriptions.Item>
-        <Descriptions.Item label="降幅">{ratio(record.reduction_ratio)}</Descriptions.Item>
+        <Descriptions.Item label="比例变化">
+          <Text type={record.reduction_ratio != null && record.reduction_ratio < 0 ? 'danger' : undefined}>{ratioChange(record.reduction_ratio)}</Text>
+        </Descriptions.Item>
         <Descriptions.Item label="Prompt 版本">{record.prompt_version}</Descriptions.Item>
         <Descriptions.Item label="模型来源">{record.provider}</Descriptions.Item>
       </Descriptions>

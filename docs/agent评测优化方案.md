@@ -8,6 +8,29 @@
 
 **技术栈：** FastAPI、SQLAlchemy/PostgreSQL、Redis Streams、LangGraph、PaddleOCR、asyncio、Langfuse（可选 LangSmith 适配）、Docker Compose、pytest、Locust。
 
+## 当前阶段实现状态（2026-08-31）
+
+本轮已完成“Agent 评测与 Token 优化可视化”增量，不代表本文件中 CubeSandbox、外部 Telemetry、OfficeCLI 和压测等后续项目已经全部完成。
+
+已实现：
+
+- Worker 在首次 `START` 结束或挂起前，以失败隔离方式写入幂等评测观测副本；`RESUME` 不重复写入。
+- Token 优先采用供应商真实 usage，解析失败仍保留已取得的真实 usage；缺失时明确标记离线估算。基线和当前值覆盖相同的风控、舆情调用范围。
+- 使用确定性规则计算正确性、安全性、解释完整性三维评分，不用模型参与路由、重试或数值转换。
+- 新增主管专属汇总与单笔详情 API；客服访问返回 403，空数据与 Golden 报告缺失均显式降级。
+- 新增主管侧栏“Agent 评测”页面和工单详情“评测与成本”下钻卡片，展示 Token 数值、百分比、趋势、评分、OCR/风控/舆情/决策耗时和数据来源；Token 增加时显式显示“增加/增幅”。
+- 工单 SSE/轮询刷新会同步重取评测详情；没有真实工单评测时仍独立展示 Golden 结果。
+- 使用显式、幂等 SQL 迁移创建独立评测表；`init_db()` 不会通过 `create_all` 静默创建该表。
+
+本轮未实现、仍按原方案保留为后续方向：
+
+- 真实 CubeSandbox 模板、代理节点和生产 OfficeCLI 文件处理。
+- Langfuse/LangSmith 外部链路观测、真实 LLM-as-a-judge 和旧 Prompt 影子调用。
+- 成本币种换算、模型/Prompt 版本筛选、100 用户 Locust 压测和故障恢复演练。
+- 前端按路由拆包；当前生产构建仍有约 2.38 MB 的主包体积警告，但不影响本轮构建通过。
+
+完整命令、退出码、测试数量、迁移演练和角色验收记录见 [Agent 评测可视化验收证据](evidence/agent-evaluation-visualization.md)。
+
 ---
 
 ## 0. 实施边界与成功标准
@@ -158,4 +181,3 @@ fraud, sentiment = await asyncio.gather(
 `任务一护栏` → `任务二评测` → `任务三追踪` → `任务四 Prompt` → `任务五异步` → `任务六沙箱` → `任务七前端与原因` → `任务八部署压测` → `任务九回归审查`。
 
 真实 CubeSandbox 接入、OfficeCLI 读写、Langfuse 外部可观测和 1000 QPS 证明超出当前 MVP 的最小交付范围；若任一项必须作为上线条件，应单独建立安全、观测和性能子项目，并保留本方案的测试门禁。
-

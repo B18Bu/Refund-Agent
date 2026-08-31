@@ -151,12 +151,13 @@ def process(fields: dict) -> None:
     thread_id = fields["thread_id"]
     msg_type = fields.get("type", "START")
     resume_action = fields.get("resume_action")
+    is_resume = msg_type.upper() == "RESUME" or bool(resume_action)
 
     with get_checkpointer() as checkpointer:
         graph = build_graph().compile(checkpointer=checkpointer)
         cfg = {"configurable": {"thread_id": thread_id}}
 
-        if msg_type == "RESUME" or resume_action:
+        if is_resume:
             # A-07：checkpoint 缺失兜底（恢复时若无已保存的图状态 → FAILED + CHECKPOINT_NOT_FOUND）
             snap0 = graph.get_state(cfg)
             if not snap0 or not snap0.values:
@@ -199,7 +200,7 @@ def process(fields: dict) -> None:
         # 判断是否挂起（interrupt 在 human_review 节点）
         snapshot = graph.get_state(cfg)
         state = snapshot.values or {}
-        if should_record_evaluation(msg_type):
+        if should_record_evaluation("RESUME" if is_resume else msg_type):
             record_evaluation(
                 ticket_id=ticket_id,
                 run_id=f"{thread_id}:start",

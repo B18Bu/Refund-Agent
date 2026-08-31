@@ -14,7 +14,13 @@ from typing import Literal
 from openai import OpenAI
 
 from app.config import settings
-from app.agents.prompts import estimate_prompt_tokens, optimized_prompt
+from app.agents.prompts import (
+    FRAUD_SYSTEM_PROMPT,
+    SENTIMENT_SYSTEM_PROMPT,
+    estimate_prompt_tokens,
+    optimized_prompt,
+    sentiment_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,28 +73,32 @@ class LlmRiskClient:
 
     def score_fraud_with_usage(self, material: str) -> tuple[int, UsageSnapshot]:
         user_prompt = optimized_prompt(material)
+        system = FRAUD_SYSTEM_PROMPT
         if settings.LLM_PROVIDER == "mock":
             value = _mock_fraud_score(material)
-            return value, _estimated_usage(user_prompt, str(value))
+            return value, _estimated_usage(f"{system}\n{user_prompt}", str(value))
         client = get_client()
         if client is None:
-            return 100, _estimated_usage(user_prompt, "100")
+            return 100, _estimated_usage(f"{system}\n{user_prompt}", "100")
         try:
-            system = "你是电商退款风控专家。只输出 JSON，禁止其它文字。"
             raw, usage = self._chat_with_usage(system, user_prompt)
+        except Exception as exc:  # 调用失败时没有供应商 usage，只能离线估算
+            logger.warning("fraud LLM 调用失败，兜底 100: %s", exc)
+            return 100, _estimated_usage(f"{system}\n{user_prompt}", "100")
+        try:
             score = int(json.loads(raw).get("fraud_score", 100))
             return max(0, min(100, score)), usage
-        except Exception as exc:  # 兜底：宁挂勿错退
-            logger.warning("fraud LLM 失败，兜底 100: %s", exc)
-            return 100, _estimated_usage(f"{system}\n{user_prompt}", "100")
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:  # 解析失败仍保留真实 usage
+            logger.warning("fraud LLM 响应解析失败，兜底 100: %s", exc)
+            return 100, usage
 
     def classify_sentiment(self, material: str) -> RiskLevel:
         """舆情等级 LOW/MEDIUM/HIGH。失败兜底 HIGH。"""
         return self.classify_sentiment_with_usage(material)[0]
 
     def classify_sentiment_with_usage(self, material: str) -> tuple[RiskLevel, UsageSnapshot]:
-        system = "你是舆情分析专家。只输出 LOW / MEDIUM / HIGH 之一，禁止其它文字。"
-        prompt = "根据以下客诉内容评估舆情等级：\n" + material
+        system = SENTIMENT_SYSTEM_PROMPT
+        prompt = sentiment_prompt(material)
         if settings.LLM_PROVIDER == "mock":
             value = _mock_sentiment(material)
             return value, _estimated_usage(f"{system}\n{prompt}", value)

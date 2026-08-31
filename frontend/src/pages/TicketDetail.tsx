@@ -40,10 +40,15 @@ export default function TicketDetail() {
   const nav = useNavigate()
   const [t, setT] = useState<Ticket | null>(null)
   const [loadError, setLoadError] = useState(false)
+  const [evaluationRefreshVersion, setEvaluationRefreshVersion] = useState(0)
   const user = getSessionUser()
 
   const load = () => client.get(`/tickets/${id}`)
-    .then((r) => { setT(r.data); setLoadError(false) })
+    .then((r) => {
+      setT(r.data)
+      setLoadError(false)
+      setEvaluationRefreshVersion((version) => version + 1)
+    })
     .catch(() => setLoadError(true))
 
   useEffect(() => {
@@ -59,6 +64,7 @@ export default function TicketDetail() {
         poll = setInterval(() => {
           client.get(`/tickets/${id}`).then((r) => {
             setT(r.data)
+            setEvaluationRefreshVersion((version) => version + 1)
             if (r.data.status === 'COMPLETED' && poll) {
               clearInterval(poll)
               poll = null
@@ -106,7 +112,7 @@ export default function TicketDetail() {
       </Card>
 
       {user?.role === 'sv' && (
-        <EvaluationDetail ticketId={Number(id)} />
+        <EvaluationDetail ticketId={Number(id)} refreshVersion={evaluationRefreshVersion} />
       )}
 
       {t.status === 'SUSPENDED' && user?.role === 'sv' && (
