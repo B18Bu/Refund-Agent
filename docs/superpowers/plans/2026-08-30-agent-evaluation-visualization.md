@@ -171,7 +171,7 @@ git commit -m "feat: 接入Worker评测观测副本"
 - 修改：`docker-compose.yml`
 - 测试：`backend/tests/test_evaluation_api.py`
 
-- [ ] **步骤 1：写 RBAC、空状态和汇总失败测试**
+- [x] **步骤 1：写 RBAC、空状态和汇总失败测试**
 
 ```python
 from app.models import Role, User
@@ -197,21 +197,21 @@ def test_supervisor_gets_empty_summary_without_fake_points(client, db_session):
     assert body["trend"] == []
 ```
 
-- [ ] **步骤 2：运行红灯**
+- [x] **步骤 2：运行红灯**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests/test_evaluation_api.py -q`
 预期：FAIL，新接口返回 404。
 
-- [ ] **步骤 3：实现接口与 Golden 报告降级**
+- [x] **步骤 3：实现接口与 Golden 报告降级**
 
 `GET /api/evaluations/summary` 只聚合有值记录，分别返回数据完整度；从 `GOLDEN_REPORT_PATH` 读取只读报告，文件缺失返回 `{available:false}`。`GET /api/tickets/{id}/evaluation` 无记录返回 HTTP 200 和 `{available:false,status:"NOT_AVAILABLE"}`。Compose 只读挂载 `./artifacts:/app/artifacts:ro`，不上传原始材料。
 
-- [ ] **步骤 4：运行 API 与权限回归**
+- [x] **步骤 4：运行 API 与权限回归**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests/test_evaluation_api.py backend/tests/test_tickets_api.py backend/tests/test_auth.py -q`
 预期：全部 PASS。
 
-- [ ] **步骤 5：提交**
+- [x] **步骤 5：提交**
 
 ```powershell
 git add backend/app/evaluation/schemas.py backend/app/routers/evaluations.py backend/app/routers/tickets.py backend/app/main.py backend/app/config.py docker-compose.yml backend/tests/test_evaluation_api.py

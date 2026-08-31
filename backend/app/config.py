@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     DEEPSEEK_API_KEY: str = ""  # 通过 .env 或环境变量注入，严禁硬编码提交
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     DEEPSEEK_MODEL: str = "deepseek-chat"
+    PROMPT_VERSION: str = "refund-v1"
+    GOLDEN_REPORT_PATH: str = "artifacts/golden-report.json"
 
     # ===== 决策阈值 =====
     AUTO_REFUND_MAX_AMOUNT: float = 300.0

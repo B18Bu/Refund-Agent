@@ -14,6 +14,8 @@ from app.deps import get_current_user, get_db, require_role
 from app.idempotency import resolve_idempotency
 from app.locks import acquire_approve_lock, release_approve_lock
 from app.models import Approval, Decision, Role, Ticket, TicketStatus
+from app.evaluation.models import AgentEvaluationRun
+from app.evaluation.schemas import serialize_evaluation
 from app.redis_client import get_redis
 from app.storage import save_upload
 from app.schemas import (
@@ -26,6 +28,23 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/api/tickets", tags=["tickets"])
+
+
+@router.get("/{ticket_id}/evaluation")
+def get_ticket_evaluation(
+    ticket_id: int,
+    _user=Depends(require_role(Role.SV)),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(AgentEvaluationRun)
+        .filter(AgentEvaluationRun.ticket_id == ticket_id)
+        .order_by(AgentEvaluationRun.id.desc())
+        .first()
+    )
+    if row is None:
+        return {"available": False, "status": "NOT_AVAILABLE"}
+    return {"available": True, "status": row.evaluation_status, "record": serialize_evaluation(row)}
 
 
 @router.post("")

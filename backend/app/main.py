@@ -7,12 +7,18 @@ from sqlalchemy import text
 
 from app.db import Base, engine, SessionLocal
 from app.models import Role, User
-from app.routers import auth, files, tickets
+from app.routers import auth, evaluations, files, tickets
 from app.security import hash_password
 
 
 def init_db() -> None:
-    Base.metadata.create_all(bind=engine)
+    # 评测表必须由显式 SQL 迁移创建，禁止应用启动时静默改变生产结构。
+    application_tables = [
+        table
+        for name, table in Base.metadata.tables.items()
+        if name != "agent_evaluation_runs"
+    ]
+    Base.metadata.create_all(bind=engine, tables=application_tables)
 
 
 def seed_users() -> None:
@@ -46,6 +52,7 @@ app = FastAPI(title="客诉舆情退赔决策系统", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(tickets.router)
 app.include_router(files.router)
+app.include_router(evaluations.router)
 
 
 @app.get("/healthz")
