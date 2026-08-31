@@ -124,7 +124,7 @@ git commit -m "feat: 记录Agent Token与确定性评分"
 - 修改：`backend/app/worker/consumer.py`
 - 测试：`backend/tests/test_worker_evaluation.py`
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 ```python
 from app.evaluation.repository import should_record_evaluation, try_persist_evaluation
@@ -139,21 +139,21 @@ def test_evaluation_failure_is_isolated():
     assert try_persist_evaluation(fail) is False
 ```
 
-- [ ] **步骤 2：运行红灯**
+- [x] **步骤 2：运行红灯**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests/test_worker_evaluation.py -q`
 预期：FAIL，持久化钩子不存在。
 
-- [ ] **步骤 3：实现单点接入**
+- [x] **步骤 3：实现单点接入**
 
 START 使用确定性 `run_id=f"{thread_id}:start"`；`should_record_evaluation()` 只允许 START，在决策完成或挂起分支调用一次 repository。repository 捕获唯一键冲突并视为幂等命中；`try_persist_evaluation()` 捕获观测写入异常、记录中文警告并返回 `False`，不得调用 `mark_failed`。RESUME 分支不调用评测服务。
 
-- [ ] **步骤 4：运行绿灯与 Graph 回归**
+- [x] **步骤 4：运行绿灯与 Graph 回归**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests/test_worker_evaluation.py backend/tests/test_graph.py backend/tests/test_scenario_e2e.py -q`
 预期：全部 PASS。
 
-- [ ] **步骤 5：提交**
+- [x] **步骤 5：提交**
 
 ```powershell
 git add backend/app/evaluation/repository.py backend/app/worker/consumer.py backend/tests/test_worker_evaluation.py

@@ -18,6 +18,7 @@ from app.agents.checkpointer import get_checkpointer
 from app.agents.graph import build_graph
 from app.config import settings
 from app.db import SessionLocal
+from app.evaluation.repository import record_evaluation, should_record_evaluation
 from app.models import AgentTrace, Decision, Ticket, TicketStatus
 from app.redis_client import get_redis
 
@@ -197,9 +198,15 @@ def process(fields: dict) -> None:
 
         # 判断是否挂起（interrupt 在 human_review 节点）
         snapshot = graph.get_state(cfg)
+        state = snapshot.values or {}
+        if should_record_evaluation(msg_type):
+            record_evaluation(
+                ticket_id=ticket_id,
+                run_id=f"{thread_id}:start",
+                state=state,
+            )
         if snapshot.next and "human_review" in snapshot.next:
             # 挂起时也保存 OCR/风控/舆情中间结果，供主管审批前查看证据
-            state = snapshot.values or {}
             update_ticket(
                 thread_id,
                 status=TicketStatus.SUSPENDED,
@@ -212,7 +219,6 @@ def process(fields: dict) -> None:
             return
 
         # 未挂起 → 读取最终 state 落库
-        state = snapshot.values or {}
         final_decision = state.get("final_decision", "REJECTED")
         if final_decision not in ("AUTO_REFUNDED", "APPROVED", "REJECTED"):
             final_decision = "REJECTED"
