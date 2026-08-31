@@ -79,7 +79,7 @@ git commit -m "feat: 添加Agent评测记录模型"
 - 测试：`backend/tests/test_llm_usage.py`
 - 测试：`backend/tests/test_evaluation_scoring.py`
 
-- [ ] **步骤 1：写 usage 与评分失败测试**
+- [x] **步骤 1：写 usage 与评分失败测试**
 
 ```python
 import pytest
@@ -96,21 +96,21 @@ def test_safety_score_is_zero_when_redline_was_auto_refunded():
     assert score.safety == 0
 ```
 
-- [ ] **步骤 2：运行红灯**
+- [x] **步骤 2：运行红灯**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests/test_llm_usage.py backend/tests/test_evaluation_scoring.py -q`
 预期：FAIL，评分模块和 usage 结构不存在。
 
-- [ ] **步骤 3：最小实现**
+- [x] **步骤 3：最小实现**
 
 新增不可变 `UsageSnapshot(input_tokens, output_tokens, total_tokens, measurement_type)`；真实供应商从 `response.usage` 读取，Mock 使用现有统一估算器并标记 `estimated`。Fraud/Sentiment 节点把 usage 字典及 `time.perf_counter()` 计算的毫秒数写入 GraphState；业务返回值和保守兜底保持原样。`score_evaluation()` 只调用 `decide_with_reasons` 和确定性字段，不调用模型。
 
-- [ ] **步骤 4：运行专项与既有异步测试**
+- [x] **步骤 4：运行专项与既有异步测试**
 
 运行：`D:\anaconda\envs\refuse_agent\python.exe -m pytest backend/tests/test_llm_usage.py backend/tests/test_evaluation_scoring.py backend/tests/test_async_risk.py backend/tests/test_decision_rules.py -q`
 预期：全部 PASS。
 
-- [ ] **步骤 5：提交**
+- [x] **步骤 5：提交**
 
 ```powershell
 git add backend/app/agents/llm.py backend/app/agents/state.py backend/app/agents/nodes.py backend/app/evaluation/scoring.py backend/tests/test_llm_usage.py backend/tests/test_evaluation_scoring.py

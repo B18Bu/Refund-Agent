@@ -3,10 +3,13 @@
 职责边界：节点只做「调 OCR/LLM + 组装 state」，业务判断全部下沉到 `decision_rules.decide`。
 挂起采用 LangGraph 原生 `interrupt()`（三方对齐：禁止手工 pickle）。
 """
+import time
+
 from langgraph.types import interrupt
 
 from app.agents.decision_rules import decide_with_reasons
-from app.agents.llm import LlmRiskClient
+from app.agents.llm import LlmRiskClient, UsageSnapshot
+from app.agents.prompts import estimate_prompt_tokens
 from app.agents.ocr import OcrClient
 from app.agents.state import GraphState
 from app.storage import resolve_abs_path
@@ -40,14 +43,45 @@ def ocr_node(state: GraphState) -> GraphState:
 
 def fraud_node(state: GraphState) -> GraphState:
     material = f"退款金额：{state.get('amount')}\n凭证 OCR：{state.get('ocr_text', '')}"
-    state["fraud_score"] = _risk_client.score_fraud(material)
+    started_at = time.perf_counter()
+    if hasattr(_risk_client, "score_fraud_with_usage"):
+        value, usage = _risk_client.score_fraud_with_usage(material)
+    else:
+        value = _risk_client.score_fraud(material)
+        usage = _legacy_usage(material, str(value))
+    state["fraud_score"] = value
+    state.setdefault("token_usage", {})["fraud"] = usage.as_dict()
+    state.setdefault("latency_breakdown", {})["fraud_ms"] = (
+        time.perf_counter() - started_at
+    ) * 1000
     return state
 
 
 def sentiment_node(state: GraphState) -> GraphState:
     material = state.get("ocr_text", "") or f"客诉金额：{state.get('amount')}"
-    state["sentiment"] = _risk_client.classify_sentiment(material)
+    started_at = time.perf_counter()
+    if hasattr(_risk_client, "classify_sentiment_with_usage"):
+        value, usage = _risk_client.classify_sentiment_with_usage(material)
+    else:
+        value = _risk_client.classify_sentiment(material)
+        usage = _legacy_usage(material, value)
+    state["sentiment"] = value
+    state.setdefault("token_usage", {})["sentiment"] = usage.as_dict()
+    state.setdefault("latency_breakdown", {})["sentiment_ms"] = (
+        time.perf_counter() - started_at
+    ) * 1000
     return state
+
+
+def _legacy_usage(input_text: str, output_text: str) -> UsageSnapshot:
+    input_tokens = estimate_prompt_tokens(input_text)
+    output_tokens = estimate_prompt_tokens(output_text)
+    return UsageSnapshot(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=input_tokens + output_tokens,
+        measurement_type="estimated",
+    )
 
 
 def decision_node(state: GraphState) -> GraphState:

@@ -8,17 +8,41 @@
 import json
 import logging
 import asyncio
+from dataclasses import asdict, dataclass
 from typing import Literal
 
 from openai import OpenAI
 
 from app.config import settings
+from app.agents.prompts import estimate_prompt_tokens, optimized_prompt
 
 logger = logging.getLogger(__name__)
 
 RiskLevel = Literal["LOW", "MEDIUM", "HIGH"]
 
 _client: OpenAI | None = None
+
+
+@dataclass(frozen=True)
+class UsageSnapshot:
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    measurement_type: str
+
+    def as_dict(self) -> dict[str, int | str]:
+        return asdict(self)
+
+
+def _estimated_usage(input_text: str, output_text: str) -> UsageSnapshot:
+    input_tokens = estimate_prompt_tokens(input_text)
+    output_tokens = estimate_prompt_tokens(output_text)
+    return UsageSnapshot(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=input_tokens + output_tokens,
+        measurement_type="estimated",
+    )
 
 
 def get_client() -> OpenAI | None:
@@ -39,44 +63,52 @@ class LlmRiskClient:
 
     def score_fraud(self, material: str) -> int:
         """欺诈分 0-100 整数，越高越可疑。失败兜底 100。"""
+        return self.score_fraud_with_usage(material)[0]
+
+    def score_fraud_with_usage(self, material: str) -> tuple[int, UsageSnapshot]:
+        user_prompt = optimized_prompt(material)
         if settings.LLM_PROVIDER == "mock":
-            return _mock_fraud_score(material)
+            value = _mock_fraud_score(material)
+            return value, _estimated_usage(user_prompt, str(value))
         client = get_client()
         if client is None:
-            return 100
+            return 100, _estimated_usage(user_prompt, "100")
         try:
             system = "你是电商退款风控专家。只输出 JSON，禁止其它文字。"
-            prompt = (
-                "根据以下凭证 OCR 文本与退款金额，评估恶意退款/薅羊毛欺诈分"
-                "（0-100 整数，越高越可疑）。\n只输出 JSON："
-                '{"fraud_score": <int>}\n材料：' + material
-            )
-            raw = self._chat(system, prompt)
+            raw, usage = self._chat_with_usage(system, user_prompt)
             score = int(json.loads(raw).get("fraud_score", 100))
-            return max(0, min(100, score))
+            return max(0, min(100, score)), usage
         except Exception as exc:  # 兜底：宁挂勿错退
             logger.warning("fraud LLM 失败，兜底 100: %s", exc)
-            return 100
+            return 100, _estimated_usage(f"{system}\n{user_prompt}", "100")
 
     def classify_sentiment(self, material: str) -> RiskLevel:
         """舆情等级 LOW/MEDIUM/HIGH。失败兜底 HIGH。"""
+        return self.classify_sentiment_with_usage(material)[0]
+
+    def classify_sentiment_with_usage(self, material: str) -> tuple[RiskLevel, UsageSnapshot]:
+        system = "你是舆情分析专家。只输出 LOW / MEDIUM / HIGH 之一，禁止其它文字。"
+        prompt = "根据以下客诉内容评估舆情等级：\n" + material
         if settings.LLM_PROVIDER == "mock":
-            return _mock_sentiment(material)
+            value = _mock_sentiment(material)
+            return value, _estimated_usage(f"{system}\n{prompt}", value)
         client = get_client()
         if client is None:
-            return "HIGH"
+            return "HIGH", _estimated_usage(f"{system}\n{prompt}", "HIGH")
         try:
-            system = "你是舆情分析专家。只输出 LOW / MEDIUM / HIGH 之一，禁止其它文字。"
-            prompt = "根据以下客诉内容评估舆情等级：\n" + material
-            raw = self._chat(system, prompt).strip().upper()
+            response, usage = self._chat_with_usage(system, prompt)
+            raw = response.strip().upper()
             if raw not in ("LOW", "MEDIUM", "HIGH"):
-                return "HIGH"
-            return raw  # type: ignore[return-value]
+                return "HIGH", usage
+            return raw, usage  # type: ignore[return-value]
         except Exception as exc:
             logger.warning("sentiment LLM 失败，兜底 HIGH: %s", exc)
-            return "HIGH"
+            return "HIGH", _estimated_usage(f"{system}\n{prompt}", "HIGH")
 
     def _chat(self, system: str, user: str) -> str:
+        return self._chat_with_usage(system, user)[0]
+
+    def _chat_with_usage(self, system: str, user: str) -> tuple[str, UsageSnapshot]:
         client = get_client()
         assert client is not None
         resp = client.chat.completions.create(
@@ -88,7 +120,19 @@ class LlmRiskClient:
             temperature=0,
             timeout=30,
         )
-        return resp.choices[0].message.content or ""
+        content = resp.choices[0].message.content or ""
+        provider_usage = getattr(resp, "usage", None)
+        input_tokens = getattr(provider_usage, "prompt_tokens", None)
+        output_tokens = getattr(provider_usage, "completion_tokens", None)
+        total_tokens = getattr(provider_usage, "total_tokens", None)
+        if input_tokens is None or output_tokens is None:
+            return content, _estimated_usage(f"{system}\n{user}", content)
+        return content, UsageSnapshot(
+            input_tokens=int(input_tokens),
+            output_tokens=int(output_tokens),
+            total_tokens=int(total_tokens or (input_tokens + output_tokens)),
+            measurement_type="actual",
+        )
 
     async def score_fraud_async(self, material: str) -> int:
         """在线程池执行同步客户端，避免阻塞事件循环。"""

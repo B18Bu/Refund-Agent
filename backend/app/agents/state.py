@@ -14,3 +14,5 @@ class GraphState(TypedDict, total=False):
     decision_reasons: list[str]
     final_decision: str    # PENDING / AUTO_REFUNDED / APPROVED / REJECTED
     approval_action: str   # APPROVE / REJECT（主管输入）
+    token_usage: dict[str, dict[str, int | str]]
+    latency_breakdown: dict[str, float]
