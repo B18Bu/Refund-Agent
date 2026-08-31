@@ -270,7 +270,7 @@ git commit -m "feat: 添加主管Agent评测中心"
 - 修改：`frontend/src/styles.css`
 - 修改：`frontend/tests/evaluation-ui.test.mjs`
 
-- [ ] **步骤 1：增加失败测试**
+- [x] **步骤 1：增加失败测试**
 
 ```javascript
 test('工单评测详情仅为主管请求并保留审批区', () => {
@@ -281,22 +281,22 @@ test('工单评测详情仅为主管请求并保留审批区', () => {
 })
 ```
 
-- [ ] **步骤 2：运行红灯**
+- [x] **步骤 2：运行红灯**
 
 运行：`node --test frontend/tests/evaluation-ui.test.mjs`
 预期：FAIL，`EvaluationDetail` 不存在。
 
-- [ ] **步骤 3：实现下钻组件**
+- [x] **步骤 3：实现下钻组件**
 
 主管详情加载 `/tickets/{id}/evaluation`；展示基线输入、当前输入、输出/总 Token、可为负的节省量、三维依据、阶段耗时、Prompt 版本和来源标签。失败/缺失只影响本卡片；原审批卡片继续渲染和操作。640px 以下单列，数值不只靠颜色表达。
 
-- [ ] **步骤 4：运行绿灯和完整前端构建**
+- [x] **步骤 4：运行绿灯和完整前端构建**
 
 运行：`node --test frontend/tests/ui-layout.test.mjs frontend/tests/evaluation-ui.test.mjs`
 运行：`npm --prefix frontend run build`
 预期：全部成功。
 
-- [ ] **步骤 5：提交**
+- [x] **步骤 5：提交**
 
 ```powershell
 git add frontend/src/components/EvaluationDetail.tsx frontend/src/pages/TicketDetail.tsx frontend/src/styles.css frontend/tests/evaluation-ui.test.mjs

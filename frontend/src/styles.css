@@ -46,12 +46,21 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
 .evaluation-row { cursor: pointer; }
 .evaluation-row:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
 .evaluation-table-card .ant-card-body { padding: 0; }
+.evaluation-detail { margin-top: 16px; }
+.evaluation-detail__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 20px; }
+.evaluation-detail__grid h3 { margin: 0 0 12px; font-size: 16px; }
+.evaluation-detail__score { margin-bottom: 12px; }
+.evaluation-latency-list { display: grid; gap: 8px; margin: 0 0 16px; }
+.evaluation-latency-list div { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border); }
+.evaluation-latency-list dt { overflow-wrap: anywhere; }
+.evaluation-latency-list dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 768px) {
   .app-header { padding-inline: 16px; }
   .screen-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .screen-charts { grid-template-columns: 1fr; }
   .evaluation-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .evaluation-chart-grid, .evaluation-secondary-grid { grid-template-columns: 1fr; }
+  .evaluation-detail__grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .app-content { padding: 16px; }

@@ -6,6 +6,7 @@ import { getSessionUser } from '../types/auth'
 import client from '../api/client'
 import FlowCanvas from '../components/FlowCanvas'
 import ApprovePanel from '../components/ApprovePanel'
+import EvaluationDetail from '../components/EvaluationDetail'
 
 type Ticket = {
   id: number
@@ -103,6 +104,10 @@ export default function TicketDetail() {
       <Card title="Agent 决策流转" style={{ marginTop: 16 }}>
         <FlowCanvas traces={t.traces} />
       </Card>
+
+      {user?.role === 'sv' && (
+        <EvaluationDetail ticketId={Number(id)} />
+      )}
 
       {t.status === 'SUSPENDED' && user?.role === 'sv' && (
         <Card title="人工审批" style={{ marginTop: 16 }}>

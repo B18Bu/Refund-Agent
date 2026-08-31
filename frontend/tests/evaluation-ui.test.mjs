@@ -26,3 +26,13 @@ test('评测中心必须具备响应式网格和可见焦点', () => {
   assert.match(styles, /\.evaluation-row:focus-visible/)
   assert.match(styles, /@media\s*\(max-width:\s*640px\)/)
 })
+
+test('工单评测详情仅为主管请求并保留审批区', () => {
+  const detail = read('pages/TicketDetail.tsx')
+  assert.match(detail, /user\?\.role === 'sv'.*EvaluationDetail/s)
+  assert.match(detail, /ApprovePanel/)
+  const evaluation = read('components/EvaluationDetail.tsx')
+  assert.match(evaluation, /评测暂不可用|暂无评测数据/)
+  assert.match(evaluation, /基线输入 Token/)
+  assert.match(evaluation, /阶段耗时/)
+})
