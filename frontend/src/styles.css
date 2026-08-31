@@ -34,10 +34,24 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
 .screen-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .screen-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
 .screen-chart { min-width: 0; padding: 8px; background: #fff; border-radius: 8px; }
+.evaluation-page h2 { margin: 0 0 4px; }
+.evaluation-sources { display: flex; flex-wrap: wrap; gap: 8px; }
+.evaluation-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.evaluation-chart-grid, .evaluation-secondary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.evaluation-card, .evaluation-table-card { min-width: 0; }
+.evaluation-card figure { margin: 0; }
+.evaluation-card figcaption { color: #475569; line-height: 1.6; }
+.evaluation-data-list { max-height: 112px; margin: 8px 0 0; padding-left: 20px; overflow: auto; }
+.evaluation-scores { display: grid; gap: 12px; margin-bottom: 12px; }
+.evaluation-row { cursor: pointer; }
+.evaluation-row:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
+.evaluation-table-card .ant-card-body { padding: 0; }
 @media (max-width: 768px) {
   .app-header { padding-inline: 16px; }
   .screen-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .screen-charts { grid-template-columns: 1fr; }
+  .evaluation-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .evaluation-chart-grid, .evaluation-secondary-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .app-content { padding: 16px; }
@@ -49,4 +63,7 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
   .screen-page { min-height: calc(100vh - 96px); margin: -16px; padding: 16px; }
   .screen-stats { grid-template-columns: 1fr; }
   .screen-header { align-items: flex-start; }
+  .evaluation-kpis { grid-template-columns: 1fr; }
+  .evaluation-page .ant-card-body { padding: 16px; }
+  .evaluation-table-card .ant-card-body { padding: 0; }
 }

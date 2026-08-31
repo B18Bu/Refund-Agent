@@ -228,7 +228,7 @@ git commit -m "feat: 提供主管评测查询接口"
 - 修改：`frontend/src/styles.css`
 - 创建：`frontend/tests/evaluation-ui.test.mjs`
 
-- [ ] **步骤 1：写失败的 UI 契约测试**
+- [x] **步骤 1：写失败的 UI 契约测试**
 
 ```javascript
 test('评测中心必须是主管路由并显示真实数据来源', () => {
@@ -240,22 +240,22 @@ test('评测中心必须是主管路由并显示真实数据来源', () => {
 })
 ```
 
-- [ ] **步骤 2：运行红灯**
+- [x] **步骤 2：运行红灯**
 
 运行：`node --test frontend/tests/evaluation-ui.test.mjs`
 预期：FAIL，页面和路由不存在。
 
-- [ ] **步骤 3：实现页面**
+- [x] **步骤 3：实现页面**
 
 复用现有 `client`、`SupervisorOnly`、Ant Design 和 ECharts：四个 KPI、前后柱状图、7 日实线/虚线趋势、三维评分、Golden 独立卡片和最近记录。API 失败显示 Alert+重试；空数组显示 Empty；表格行支持 Enter；图表下提供可见数值摘要。侧栏使用现有图标库并延续已修复的导航前景色继承。
 
-- [ ] **步骤 4：运行 UI 契约和构建**
+- [x] **步骤 4：运行 UI 契约和构建**
 
 运行：`node --test frontend/tests/ui-layout.test.mjs frontend/tests/evaluation-ui.test.mjs`
 运行：`npm --prefix frontend run build`
 预期：测试和构建均成功；只允许现有大包体积警告。
 
-- [ ] **步骤 5：提交**
+- [x] **步骤 5：提交**
 
 ```powershell
 git add frontend/src/types/evaluation.ts frontend/src/pages/Evaluations.tsx frontend/src/App.tsx frontend/src/components/AppShell.tsx frontend/src/styles.css frontend/tests/evaluation-ui.test.mjs

@@ -4,6 +4,7 @@ import {
   DashboardOutlined,
   FileTextOutlined,
   FundOutlined,
+  LineChartOutlined,
   MonitorOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
@@ -57,6 +58,7 @@ export default function AppShell() {
         { key: '/approvals', icon: <SafetyCertificateOutlined />, label: <Badge className="app-nav-badge" styles={{ root: { color: 'inherit' } }} count={counts.pending} color="#d46b08" offset={[8, 0]}>待人工审批</Badge> },
         { key: '/process', icon: <FileTextOutlined />, label: '退款流程总览' },
         { key: '/screen', icon: <FundOutlined />, label: '数据大屏' },
+        { key: '/evaluations', icon: <LineChartOutlined />, label: 'Agent 评测' },
       ]
     : [
         { key: '/workspace', icon: <DashboardOutlined />, label: '退款工作台' },

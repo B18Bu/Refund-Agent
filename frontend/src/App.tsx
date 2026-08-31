@@ -6,6 +6,7 @@ import Screen from './pages/Screen'
 import Monitor from './pages/Monitor'
 import MyTickets from './pages/MyTickets'
 import ProcessOverview from './pages/ProcessOverview'
+import Evaluations from './pages/Evaluations'
 import AppShell from './components/AppShell'
 import { getSessionUser } from './types/auth'
 
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/process" element={<ProcessOverview />} />
             <Route path="/ticket/:id" element={<TicketDetail />} />
             <Route path="/screen" element={<SupervisorOnly><Screen /></SupervisorOnly>} />
+            <Route path="/evaluations" element={<SupervisorOnly><Evaluations /></SupervisorOnly>} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
