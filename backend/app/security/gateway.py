@@ -10,7 +10,9 @@ from __future__ import annotations
 import base64
 import re
 import unicodedata
+from dataclasses import dataclass
 
+from app.config import settings
 from app.security.ner import NerDetector, get_ner_detector
 
 
@@ -21,6 +23,36 @@ class SecurityException(Exception):
         super().__init__(f"security_injection_detected risk={risk:.2f} rules={rules}")
         self.risk = risk
         self.rules = rules
+
+
+@dataclass(frozen=True)
+class CriticResult:
+    risk: float
+    rules: list[str]
+    annotation: str
+
+
+class _CriticAnnotator:
+    """可选 LLM 注释器：只返回是否可用，模型内容不离开本地调用栈。"""
+
+    def annotate(self, summary: str) -> None:
+        from app.agents.llm import get_client
+
+        client = get_client()
+        if client is None:
+            raise RuntimeError("annotation client unavailable")
+        client.chat.completions.create(
+            model=settings.DEEPSEEK_MODEL,
+            messages=[
+                {"role": "system", "content": "仅确认已收到脱敏安全摘要；不得提出操作或改变安全结论。"},
+                {"role": "user", "content": summary},
+            ],
+            temperature=0,
+            timeout=5,
+        )
+
+
+_critic_annotator = _CriticAnnotator()
 
 
 # ============ DLP：PII 脱敏 ============
@@ -167,6 +199,18 @@ class CriticEngine:
     def is_blocked(self, text: str, threshold: float = 0.85) -> bool:
         risk, _ = self.score(text)
         return risk >= threshold
+
+    def inspect(self, text: str) -> CriticResult:
+        """确定性规则先完成评分；LLM 仅对脱敏摘要做可用性注释。"""
+        risk, rules = self.score(text)
+        if not settings.SECURITY_LLM_ENHANCE:
+            return CriticResult(risk, rules, "llm_annotation_disabled")
+        try:
+            summary, _ = DLP.mask(text or "")
+            _critic_annotator.annotate(summary[:512])
+        except Exception:
+            return CriticResult(risk, rules, "llm_annotation_unavailable")
+        return CriticResult(risk, rules, "llm_annotation_available")
 
     def block_or_raise(self, text: str, threshold: float = 0.85) -> None:
         risk, rules = self.score(text)

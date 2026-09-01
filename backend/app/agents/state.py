@@ -13,6 +13,7 @@ class GraphState(TypedDict, total=False):
     dlp_entities: list[str]
     critic_risk: float        # 注入/越狱风险分 0~1
     security_flags: list[str] # 命中规则
+    critic_annotation: str    # LLM 注释可用状态，不参与裁决
     intent_route: str         # strong_signal / llm_judge（Node A 分流）
     intent_label: str         # refund_request / complaint / malicious / general
     intent_hit_rules: list[str]

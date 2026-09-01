@@ -99,3 +99,12 @@ def test_governance_gap_records_api_worker_red_blue_fixture_coverage():
 
     assert e2e_gap["status"] == "partial"
     assert "API" in e2e_gap["description"]
+
+
+def test_governance_gap_marks_llm_annotation_as_decision_independent():
+    from app.security.governance import CURRENT_GAPS
+
+    annotation_gap = next(gap for gap in CURRENT_GAPS if gap["key"] == "llm_annotation")
+
+    assert annotation_gap["status"] == "partial"
+    assert "不参与裁决" in annotation_gap["description"]

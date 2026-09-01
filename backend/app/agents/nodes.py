@@ -72,12 +72,14 @@ def critic_node(state: GraphState) -> GraphState:
     state["masked_ocr_text"] = masked
     state["dlp_entities"] = entities
     if settings.SECURITY_GATEWAY_ENABLED:
-        risk, flags = CriticEngine().score(ocr_text)
-        state["critic_risk"] = round(risk, 4)
-        state["security_flags"] = flags
+        result = CriticEngine().inspect(ocr_text)
+        state["critic_risk"] = round(result.risk, 4)
+        state["security_flags"] = result.rules
+        state["critic_annotation"] = result.annotation
     else:
         state["critic_risk"] = 0.0
         state["security_flags"] = []
+        state["critic_annotation"] = "llm_annotation_disabled"
     state.setdefault("latency_breakdown", {})["critic_ms"] = (
         time.perf_counter() - started_at
     ) * 1000
@@ -208,6 +210,7 @@ def decision_node(state: GraphState) -> GraphState:
     state["evidence_audit"]["security"] = {
         "risk": state.get("critic_risk", 0.0),
         "flags": state.get("security_flags", []),
+        "annotation": state.get("critic_annotation", "llm_annotation_disabled"),
     }
     state["evidence_audit"]["intent"] = {
         "route": state.get("intent_route"),

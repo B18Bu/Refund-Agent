@@ -34,8 +34,8 @@ CURRENT_GAPS = [
     {
         "key": "llm_annotation",
         "title": "Critic 辅助注释",
-        "description": "可选注释能力尚未落地。",
-        "status": "pending",
+        "description": "可选注释仅反馈可用状态，异常显式降级，绝不参与裁决。",
+        "status": "partial",
     },
 ]
 

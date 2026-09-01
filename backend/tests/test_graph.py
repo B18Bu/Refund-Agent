@@ -72,6 +72,7 @@ def test_injection_forces_human_review_and_records_security(monkeypatch):
     assert snap.values["decision_reasons"] == ["security_injection_detected"]
     assert snap.values["critic_risk"] >= 0.85
     assert snap.values["evidence_audit"]["security"]["flags"]
+    assert snap.values["critic_annotation"] == "llm_annotation_disabled"
 
 
 def test_human_review_suspend_and_resume(monkeypatch):
