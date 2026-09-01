@@ -59,6 +59,7 @@ export default function AppShell() {
         { key: '/process', icon: <FileTextOutlined />, label: '退款流程总览' },
         { key: '/screen', icon: <FundOutlined />, label: '数据大屏' },
         { key: '/evaluations', icon: <LineChartOutlined />, label: 'Agent 评测' },
+        { key: '/security-governance', icon: <SafetyCertificateOutlined />, label: '安全治理中心' },
       ]
     : [
         { key: '/workspace', icon: <DashboardOutlined />, label: '退款工作台' },

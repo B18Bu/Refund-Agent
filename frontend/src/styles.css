@@ -54,6 +54,19 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
 .evaluation-latency-list div { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--color-border); }
 .evaluation-latency-list dt { overflow-wrap: anywhere; }
 .evaluation-latency-list dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.security-governance-page h2 { margin: 0 0 4px; }
+.security-governance-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.security-governance-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.security-governance-card { min-width: 0; }
+.security-governance-card figure { margin: 16px 0 0; }
+.security-governance-card figcaption { color: #475569; line-height: 1.6; }
+.security-governance-description { margin-bottom: 8px; }
+.security-governance-gaps { display: grid; gap: 8px; }
+.security-governance-gap { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--color-border); border-radius: 6px; }
+.security-governance-gap .ant-typography { margin: 4px 0 0; }
+.security-governance-table { min-width: 0; overflow: hidden; }
+.security-governance-table .ant-card-body { padding: 0; overflow-x: auto; }
+.security-governance-table .ant-table-row:focus-visible { outline: 3px solid var(--color-focus); outline-offset: -3px; }
 @media (max-width: 768px) {
   .app-header { padding-inline: 16px; }
   .screen-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -61,6 +74,8 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
   .evaluation-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .evaluation-chart-grid, .evaluation-secondary-grid { grid-template-columns: 1fr; }
   .evaluation-detail__grid { grid-template-columns: 1fr; }
+  .security-governance-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .security-governance-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .app-content { padding: 16px; }
@@ -75,4 +90,7 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
   .evaluation-kpis { grid-template-columns: 1fr; }
   .evaluation-page .ant-card-body { padding: 16px; }
   .evaluation-table-card .ant-card-body { padding: 0; }
+  .security-governance-kpis { grid-template-columns: 1fr; }
+  .security-governance-gap { flex-direction: column; }
+  .security-governance-card .ant-card-body { padding: 16px; }
 }
