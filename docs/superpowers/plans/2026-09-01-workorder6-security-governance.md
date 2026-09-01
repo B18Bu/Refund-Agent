@@ -135,7 +135,7 @@ git commit -m "feat(工单6): 生成结构化安全治理证据"
 - 创建：`backend/app/routers/security_governance.py`、`backend/tests/test_security_governance_api.py`
 - 修改：`backend/app/main.py`
 
-- [ ] **步骤 1：先写失败测试**
+- [x] **步骤 1：先写失败测试**
 
 ```python
 def test_security_governance_summary_requires_supervisor(client, db_session):
@@ -151,12 +151,12 @@ def test_supervisor_summary_never_exposes_ocr_text(client, db_session):
     assert "raw_text" not in str(response.json())
 ```
 
-- [ ] **步骤 2：运行失败测试**
+- [x] **步骤 2：运行失败测试**
 
 运行：`python -m pytest backend/tests/test_security_governance_api.py -q`
 预期：FAIL，返回 404，因为治理路由尚未注册。
 
-- [ ] **步骤 3：实现主管专用接口**
+- [x] **步骤 3：实现主管专用接口**
 
 ```python
 router = APIRouter(prefix="/api/security-governance", tags=["security-governance"])
@@ -176,7 +176,7 @@ def get_security_governance_summary(
 
 在 `backend/app/main.py` 注册此路由；不要扩充客服可调用的工单接口。
 
-- [ ] **步骤 4：验证并提交**
+- [x] **步骤 4：验证并提交**
 
 运行：`python -m pytest backend/tests/test_security_governance.py backend/tests/test_security_governance_api.py backend/tests/test_tickets_api.py -q`
 预期：PASS。
