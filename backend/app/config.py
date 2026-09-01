@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     # ===== 安全网关（Critic 注入检测 + DLP 脱敏，对应 docs/sec_spec.md）=====
     SECURITY_GATEWAY_ENABLED: bool = True
     DLP_ENABLED: bool = True
+    DLP_NER_ENABLED: bool = False
+    DLP_NER_MODEL_PATH: str = ""
     SECURITY_INJECTION_THRESHOLD: float = 0.85
     SECURITY_LLM_ENHANCE: bool = False   # 可选 LLM 增强，失败不影响规则拦截
     SECURITY_RED_BLUE_REPORT_PATH: str = "artifacts/security-red-blue-report.json"

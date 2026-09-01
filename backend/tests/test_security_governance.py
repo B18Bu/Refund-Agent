@@ -81,3 +81,12 @@ def test_security_audit_ignores_shell_true_text_but_finds_executable_code(tmp_pa
     report = module.run()
 
     assert report["finding_counts"]["shell_true"] == 1
+
+
+def test_governance_gap_explains_unconfigured_local_ner_degradation():
+    from app.security.governance import CURRENT_GAPS
+
+    ner_gap = next(gap for gap in CURRENT_GAPS if gap["key"] == "ner_dlp")
+
+    assert ner_gap["status"] == "partial"
+    assert "降级" in ner_gap["description"]

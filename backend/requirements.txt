@@ -16,6 +16,7 @@ langgraph-checkpoint-postgres>=3.0
 openai>=1.40
 cubesandbox>=0.7,<1.0
 pillow>=10.0
+spacy>=3.7,<4.0
 pytest>=8.0
 pytest-asyncio>=0.23
 httpx>=0.27

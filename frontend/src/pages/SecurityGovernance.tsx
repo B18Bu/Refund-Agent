@@ -118,6 +118,7 @@ export default function SecurityGovernance() {
           <Descriptions size="small" column={1}>
             <Descriptions.Item label="DLP 验收"><ReportValue available={summary.dlp.available} value={summary.dlp.acceptance_status ?? '—'} /></Descriptions.Item>
             <Descriptions.Item label="DLP 样本"><ReportValue available={summary.dlp.available} value={summary.dlp.sample_count ?? '—'} /></Descriptions.Item>
+            <Descriptions.Item label="NER 状态"><ReportValue available={summary.dlp.available} value={summary.dlp.ner_status === 'available' ? '本地模型可用' : summary.dlp.ner_status === 'degraded' ? '已降级：本地模型不可用' : summary.dlp.ner_status === 'disabled' ? '未启用' : '—'} /></Descriptions.Item>
             <Descriptions.Item label="审计发现"><ReportValue available={summary.audit.available} value={auditCounts.map(([key, value]) => `${key}: ${value}`).join('；') || '—'} /></Descriptions.Item>
           </Descriptions>
         </Card>

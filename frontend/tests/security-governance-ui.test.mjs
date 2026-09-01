@@ -13,6 +13,7 @@ test('安全治理中心只对主管提供导航和路由，并明确数据口�
   assert.match(page, /报告暂不可用/)
   assert.match(page, /重新加载/)
   assert.match(page, /数据口径/)
+  assert.match(page, /NER 状态/)
 })
 
 test('安全治理图表不能以缺失报告伪造零值，并提供文字后备', () => {

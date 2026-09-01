@@ -22,8 +22,8 @@ CURRENT_GAPS = [
     {
         "key": "ner_dlp",
         "title": "本地 NER 脱敏",
-        "description": "正则 DLP 尚无 NER 验证集。",
-        "status": "pending",
+        "description": "本地验证集已达标；未配置本地模型时会显式降级，且不会调用外部服务。",
+        "status": "partial",
     },
     {
         "key": "red_blue_e2e",

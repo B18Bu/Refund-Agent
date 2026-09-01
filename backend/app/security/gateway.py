@@ -11,6 +11,8 @@ import base64
 import re
 import unicodedata
 
+from app.security.ner import NerDetector, get_ner_detector
+
 
 class SecurityException(Exception):
     """命中注入/越狱拦截信号。"""
@@ -34,43 +36,43 @@ class DLP:
     """敏感数据脱敏。mask 返回 (掩码文本, 实体清单)。"""
 
     @staticmethod
-    def mask(text: str) -> tuple[str, list[str]]:
-        entities: list[str] = []
+    def mask(text: str, detector: NerDetector | None = None) -> tuple[str, list[str]]:
+        raw = text or ""
+        replacements: list[tuple[int, int, str, str]] = []
 
-        def _mask_mobile(match: re.Match) -> str:
-            value = match.group(0)
-            entities.append("mobile_phone")
-            return f"{value[:3]}****{value[-4:]}"
+        def add_regex(pattern: re.Pattern, entity: str, render) -> None:
+            for match in pattern.finditer(raw):
+                start, end = match.span()
+                if any(start < current_end and current_start < end for current_start, current_end, _, _ in replacements):
+                    continue
+                replacements.append((start, end, render(match.group(0)), entity))
 
-        def _mask_id_card(match: re.Match) -> str:
-            value = match.group(0)
-            entities.append("id_card")
-            return f"{value[:3]}***********{value[-4:]}"
+        add_regex(_MOBILE_RE, "mobile_phone", lambda value: f"{value[:3]}****{value[-4:]}")
+        add_regex(_ID_CARD_RE, "id_card", lambda value: f"{value[:3]}***********{value[-4:]}")
+        add_regex(_BANK_CARD_RE, "bank_card", lambda value: f"{value[:4]}**********{value[-4:]}")
+        add_regex(_API_KEY_RE, "api_key", lambda value: f"{value.split('-', 1)[0]}-****")
+        add_regex(_EMAIL_RE, "email", lambda value: f"{value[0]}***{value[value.index('@'):]}")
 
-        def _mask_bank_card(match: re.Match) -> str:
-            value = match.group(0)
-            entities.append("bank_card")
-            return f"{value[:4]}**********{value[-4:]}"
+        label_mapping = {"PERSON": "person_name", "GPE": "address", "LOC": "address"}
+        try:
+            detected = (detector or get_ner_detector()).detect(raw)
+        except Exception:
+            detected = []
+        for entity in sorted(detected, key=lambda item: (item.start, item.end, item.label)):
+            entity_type = label_mapping.get(entity.label.upper())
+            if entity_type is None or entity.start < 0 or entity.end > len(raw) or entity.start >= entity.end:
+                continue
+            if any(entity.start < current_end and current_start < entity.end for current_start, current_end, _, _ in replacements):
+                continue
+            replacements.append((entity.start, entity.end, "*" * (entity.end - entity.start), entity_type))
 
-        def _mask_api_key(match: re.Match) -> str:
-            value = match.group(0)
-            entities.append("api_key")
-            prefix = value.split("-", 1)[0] + "-"
-            return f"{prefix}****"
-
-        def _mask_email(match: re.Match) -> str:
-            value = match.group(0)
-            entities.append("email")
-            at = value.index("@")
-            return f"{value[0]}***{value[at:]}"
-
-        masked = text or ""
-        masked = _MOBILE_RE.sub(_mask_mobile, masked)
-        masked = _ID_CARD_RE.sub(_mask_id_card, masked)
-        masked = _BANK_CARD_RE.sub(_mask_bank_card, masked)
-        masked = _API_KEY_RE.sub(_mask_api_key, masked)
-        masked = _EMAIL_RE.sub(_mask_email, masked)
-        return masked, sorted(set(entities))
+        parts: list[str] = []
+        cursor = 0
+        for start, end, replacement, _ in sorted(replacements, key=lambda item: item[0]):
+            parts.extend((raw[cursor:start], replacement))
+            cursor = end
+        parts.append(raw[cursor:])
+        return "".join(parts), sorted({entity for _, _, _, entity in replacements})
 
 
 # ============ Critic：注入/越狱检测 ============

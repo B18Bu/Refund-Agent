@@ -24,6 +24,7 @@ export type SecurityGovernanceSummary = {
     false_positive_count: number
     accuracy: number
     acceptance_status: string
+    ner_status: string
   }>
   audit: Report<{ status: string; finding_counts: Record<string, number> }>
   gaps: { key: string; title: string; description: string; status: string }[]
