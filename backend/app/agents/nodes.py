@@ -19,6 +19,7 @@ from app.agents.llm import (
 from app.agents.prompts import estimate_prompt_tokens
 from app.agents.ocr import OcrClient
 from app.config import settings
+from app.security.action_policy import ActionPolicy, ActionRequest
 from app.security.gateway import CriticEngine, DLP
 from app.agents.state import GraphState
 from app.storage import resolve_abs_path
@@ -26,6 +27,7 @@ from app.storage import resolve_abs_path
 _risk_client = LlmRiskClient()
 _ocr_client = OcrClient()
 _intent_filter = IntentFilter()
+_action_policy = ActionPolicy()
 
 
 def intake(state: GraphState) -> GraphState:
@@ -215,9 +217,31 @@ def decision_node(state: GraphState) -> GraphState:
     state["evidence_audit"]["fallback"] = {
         "reasons": state.get("fallback_reasons", []),
     }
-    state["management_suggestion"] = management_suggestion(result.route, result.reasons)
+    decision = result.route
     if result.route == "AUTO_REFUND":
-        state["final_decision"] = "AUTO_REFUNDED"
+        verdict = _action_policy.evaluate(
+            ActionRequest(
+                action="record_auto_refund",
+                decision=result.route,
+                security_risk=float(state.get("critic_risk", 0.0)),
+                security_flags=tuple(state.get("security_flags", [])),
+            )
+        )
+        state["action_policy_result"] = {
+            "allowed": verdict.allowed,
+            "reason": verdict.reason,
+        }
+        state["evidence_audit"]["action_policy"] = state["action_policy_result"]
+        if verdict.allowed:
+            state["final_decision"] = "AUTO_REFUNDED"
+        else:
+            decision = "HUMAN_REVIEW"
+            state["final_decision"] = "PENDING"
+            if "action_policy_denied" not in reasons:
+                reasons.append("action_policy_denied")
+    state["decision"] = decision
+    state["decision_reasons"] = reasons
+    state["management_suggestion"] = management_suggestion(decision, reasons)
     state.setdefault("latency_breakdown", {})["decision_ms"] = (
         time.perf_counter() - started_at
     ) * 1000

@@ -31,6 +31,7 @@ type Ticket = {
     order_authenticity: string
     goods_consistency: string
     security?: { risk: number; flags: string[] }
+    action_policy?: { allowed: boolean; reason: string }
     intent?: { route: string; label: string; hit_rules: string[] }
     fallback?: { reasons: string[] }
   } | null
@@ -60,6 +61,16 @@ const REASON_CN: Record<string, string> = {
   sentiment_not_low: '舆情非低',
   llm_call_failed: 'LLM 调用失败（已兜底）',
   llm_output_parse_fallback: 'LLM 输出解析失败（已兜底）',
+}
+
+const ACTION_POLICY_CN: Record<string, string> = {
+  record_auto_refund_allowed: '允许记录自动退赔',
+  payment_execution_not_supported: '不支持真实支付执行',
+  tool_invocation_not_supported: '不支持工具调用',
+  unregistered_action: '未登记动作',
+  security_flags_present: '命中安全规则',
+  security_risk_invalid: '安全风险值无效',
+  security_risk_at_threshold: '安全风险触发阈值',
 }
 
 const INTENT_LABEL_CN: Record<string, string> = {
@@ -191,6 +202,16 @@ export default function TicketDetail() {
                 </Tag>
               ) : (
                 <Tag color="green">通过</Tag>
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="动作层策略">
+              {t.evidence_audit?.action_policy ? (
+                <Tag color={t.evidence_audit.action_policy.allowed ? 'green' : 'red'}>
+                  {t.evidence_audit.action_policy.allowed ? '允许：' : '已拦截：'}
+                  {ACTION_POLICY_CN[t.evidence_audit.action_policy.reason] ?? '未识别策略原因'}
+                </Tag>
+              ) : (
+                <Tag color="default">未记录</Tag>
               )}
             </Descriptions.Item>
             <Descriptions.Item label="意图分流">

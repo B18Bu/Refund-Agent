@@ -29,3 +29,12 @@ test('详情与审批操作必须使用可换行的响应式容器', () => {
   assert.match(read('pages/TicketDetail.tsx'), /className="ticket-detail-header"/)
   assert.match(read('components/ApprovePanel.tsx'), /className="approval-actions"/)
 })
+
+test('工单详情必须展示脱敏的动作层策略审计状态', () => {
+  const detail = read('pages/TicketDetail.tsx')
+
+  assert.match(detail, /action_policy\?:\s*\{\s*allowed:\s*boolean;\s*reason:\s*string\s*}/s)
+  assert.match(detail, /label="动作层策略"/)
+  assert.match(detail, /ACTION_POLICY_CN/)
+  assert.match(detail, /未识别策略原因/)
+})

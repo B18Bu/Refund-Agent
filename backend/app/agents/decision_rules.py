@@ -112,6 +112,8 @@ def management_suggestion(route: str, reasons: list[str]) -> str:
         return "建议自动退赔：金额/订单/商品校验一致且风险为低"
     if "security_injection_detected" in reasons:
         return "建议人工复核：凭证中检测到注入/越狱风险，禁止自动退赔"
+    if "action_policy_denied" in reasons:
+        return "建议人工复核：动作层策略拒绝记录自动退赔"
     if "ocr_amount_mismatch" in reasons:
         return "建议人工复核价格：识别金额与申请金额不一致"
     if "ocr_amount_missing" in reasons:

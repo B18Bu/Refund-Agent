@@ -63,6 +63,7 @@ def test_audit_evidence_mismatch_and_unverified():
 def test_management_suggestion_maps_first_blocking_reason():
     assert management_suggestion("AUTO_REFUND", []) == "建议自动退赔：金额/订单/商品校验一致且风险为低"
     assert "注入/越狱风险" in management_suggestion("HUMAN_REVIEW", ["security_injection_detected"])
+    assert "动作层策略" in management_suggestion("HUMAN_REVIEW", ["action_policy_denied"])
     assert "复核价格" in management_suggestion("HUMAN_REVIEW", ["ocr_amount_mismatch"])
     assert "未识别到可核对金额" in management_suggestion("HUMAN_REVIEW", ["ocr_amount_missing"])
     assert "超过自动退赔上限" in management_suggestion("HUMAN_REVIEW", ["amount_over_limit"])

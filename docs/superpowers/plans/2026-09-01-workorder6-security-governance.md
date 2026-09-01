@@ -261,7 +261,7 @@ git commit -m "feat(工单6): 展示主管安全治理中心"
 - 创建：`backend/app/security/action_policy.py`、`backend/tests/test_action_policy.py`
 - 修改：`backend/app/agents/state.py`、`backend/app/agents/nodes.py`、`backend/app/agents/decision_rules.py`、`backend/tests/test_graph.py`
 
-- [ ] **步骤 1：先写失败测试**
+- [x] **步骤 1：先写失败测试**
 
 ```python
 def test_policy_denies_unregistered_tool_and_payment_execution():
@@ -291,12 +291,12 @@ def low_risk_state() -> dict:
     return {"amount": 128.0, "ocr_confidence": 0.95, "fraud_score": 20, "sentiment": "LOW", "ocr_text": "金额128元", "critic_risk": 0.0, "security_flags": []}
 ```
 
-- [ ] **步骤 2：运行失败测试**
+- [x] **步骤 2：运行失败测试**
 
 运行：`python -m pytest backend/tests/test_action_policy.py -q`
 预期：FAIL，提示动作策略模块或 `_action_policy` 未定义。
 
-- [ ] **步骤 3：实现确定性白名单并接入决策节点**
+- [x] **步骤 3：实现确定性白名单并接入决策节点**
 
 ```python
 @dataclass(frozen=True)
@@ -325,7 +325,7 @@ class ActionPolicy:
 
 `decision_node` 仅在写入 `final_decision = "AUTO_REFUNDED"` 前检查 `record_auto_refund`。拒绝时覆盖为 `HUMAN_REVIEW`、追加唯一原因 `action_policy_denied`，并写入 `evidence_audit["action_policy"] = {"allowed": False, "reason": verdict.reason}`。`GraphState` 增加 `action_policy_result`，且不保存 Tool 参数或用户文本。
 
-- [ ] **步骤 4：验证并提交**
+- [x] **步骤 4：验证并提交**
 
 运行：`python -m pytest backend/tests/test_action_policy.py backend/tests/test_decision_rules.py backend/tests/test_graph.py -q`
 预期：PASS；128 元低风险订单仍为 `AUTO_REFUNDED`，任何策略拒绝都挂起人工审批。

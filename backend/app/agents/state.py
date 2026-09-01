@@ -21,6 +21,7 @@ class GraphState(TypedDict, total=False):
     sentiment: str
     decision: str          # AUTO_REFUND / HUMAN_REVIEW
     decision_reasons: list[str]
+    action_policy_result: dict[str, bool | str]
     evidence_audit: dict   # 价格一致性 / 订单真实性 / 商品一致性
     management_suggestion: str
     final_decision: str    # PENDING / AUTO_REFUNDED / APPROVED / REJECTED

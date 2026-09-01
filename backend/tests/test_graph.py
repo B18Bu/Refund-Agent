@@ -17,6 +17,10 @@ def test_auto_refund_path(monkeypatch):
     )
     assert state["decision"] == "AUTO_REFUND"
     assert state["final_decision"] == "AUTO_REFUNDED"
+    assert state["evidence_audit"]["action_policy"] == {
+        "allowed": True,
+        "reason": "record_auto_refund_allowed",
+    }
     assert state["trace_id"] == "trace-1"
 
 
