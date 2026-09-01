@@ -8,6 +8,7 @@
 import json
 import logging
 import asyncio
+import time
 from dataclasses import asdict, dataclass
 from typing import Literal
 
@@ -51,6 +52,23 @@ def _estimated_usage(input_text: str, output_text: str) -> UsageSnapshot:
     )
 
 
+def retry_call(fn, *, attempts: int = 3, base_delay: float = 1.0, sleep_fn=time.sleep):
+    """指数退避重试：attempts=首次+重试次数，退避 base_delay*2^attempt。
+
+    sleep_fn 可注入（测试用 0 延迟）；重试仍失败时抛出最后一次异常。
+    """
+    last_exc: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < attempts - 1:
+                sleep_fn(base_delay * (2**attempt))
+    assert last_exc is not None
+    raise last_exc
+
+
 def get_client() -> OpenAI | None:
     """惰性创建 OpenAI 兼容客户端；Mock 模式返回 None。"""
     global _client
@@ -72,48 +90,62 @@ class LlmRiskClient:
         return self.score_fraud_with_usage(material)[0]
 
     def score_fraud_with_usage(self, material: str) -> tuple[int, UsageSnapshot]:
+        value, usage, _reason = self.score_fraud_with_usage_and_reason(material)
+        return value, usage
+
+    def score_fraud_with_usage_and_reason(
+        self, material: str
+    ) -> tuple[int, UsageSnapshot, str | None]:
+        """返回 (分数, usage, fallback_reason | None)，失败原因显式可审计。"""
         user_prompt = optimized_prompt(material)
         system = FRAUD_SYSTEM_PROMPT
         if settings.LLM_PROVIDER == "mock":
             value = _mock_fraud_score(material)
-            return value, _estimated_usage(f"{system}\n{user_prompt}", str(value))
+            return value, _estimated_usage(f"{system}\n{user_prompt}", str(value)), None
         client = get_client()
         if client is None:
-            return 100, _estimated_usage(f"{system}\n{user_prompt}", "100")
+            return 100, _estimated_usage(f"{system}\n{user_prompt}", "100"), "llm_call_failed"
         try:
             raw, usage = self._chat_with_usage(system, user_prompt)
         except Exception as exc:  # 调用失败时没有供应商 usage，只能离线估算
             logger.warning("fraud LLM 调用失败，兜底 100: %s", exc)
-            return 100, _estimated_usage(f"{system}\n{user_prompt}", "100")
+            return 100, _estimated_usage(f"{system}\n{user_prompt}", "100"), "llm_call_failed"
         try:
             score = int(json.loads(raw).get("fraud_score", 100))
-            return max(0, min(100, score)), usage
+            return max(0, min(100, score)), usage, None
         except (TypeError, ValueError, json.JSONDecodeError) as exc:  # 解析失败仍保留真实 usage
             logger.warning("fraud LLM 响应解析失败，兜底 100: %s", exc)
-            return 100, usage
+            return 100, usage, "llm_output_parse_fallback"
 
     def classify_sentiment(self, material: str) -> RiskLevel:
         """舆情等级 LOW/MEDIUM/HIGH。失败兜底 HIGH。"""
         return self.classify_sentiment_with_usage(material)[0]
 
     def classify_sentiment_with_usage(self, material: str) -> tuple[RiskLevel, UsageSnapshot]:
+        value, usage, _reason = self.classify_sentiment_with_usage_and_reason(material)
+        return value, usage
+
+    def classify_sentiment_with_usage_and_reason(
+        self, material: str
+    ) -> tuple[RiskLevel, UsageSnapshot, str | None]:
+        """返回 (等级, usage, fallback_reason | None)，失败原因显式可审计。"""
         system = SENTIMENT_SYSTEM_PROMPT
         prompt = sentiment_prompt(material)
         if settings.LLM_PROVIDER == "mock":
             value = _mock_sentiment(material)
-            return value, _estimated_usage(f"{system}\n{prompt}", value)
+            return value, _estimated_usage(f"{system}\n{prompt}", value), None
         client = get_client()
         if client is None:
-            return "HIGH", _estimated_usage(f"{system}\n{prompt}", "HIGH")
+            return "HIGH", _estimated_usage(f"{system}\n{prompt}", "HIGH"), "llm_call_failed"
         try:
             response, usage = self._chat_with_usage(system, prompt)
             raw = response.strip().upper()
             if raw not in ("LOW", "MEDIUM", "HIGH"):
-                return "HIGH", usage
-            return raw, usage  # type: ignore[return-value]
+                return "HIGH", usage, "llm_output_parse_fallback"
+            return raw, usage, None  # type: ignore[return-value]
         except Exception as exc:
             logger.warning("sentiment LLM 失败，兜底 HIGH: %s", exc)
-            return "HIGH", _estimated_usage(f"{system}\n{prompt}", "HIGH")
+            return "HIGH", _estimated_usage(f"{system}\n{prompt}", "HIGH"), "llm_call_failed"
 
     def _chat(self, system: str, user: str) -> str:
         return self._chat_with_usage(system, user)[0]
@@ -121,14 +153,18 @@ class LlmRiskClient:
     def _chat_with_usage(self, system: str, user: str) -> tuple[str, UsageSnapshot]:
         client = get_client()
         assert client is not None
-        resp = client.chat.completions.create(
-            model=settings.DEEPSEEK_MODEL,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=0,
-            timeout=30,
+        resp = retry_call(
+            lambda: client.chat.completions.create(
+                model=settings.DEEPSEEK_MODEL,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                temperature=0,
+                timeout=30,
+            ),
+            attempts=settings.LLM_RETRY_MAX_ATTEMPTS,
+            base_delay=settings.LLM_RETRY_BASE_DELAY_SECONDS,
         )
         content = resp.choices[0].message.content or ""
         provider_usage = getattr(resp, "usage", None)
@@ -165,6 +201,84 @@ async def score_risk_parallel(client: LlmRiskClient, material: str) -> tuple[int
         sentiment if sentiment in ("LOW", "MEDIUM", "HIGH") else "HIGH"
     )
     return fraud_value, sentiment_value
+
+
+def _timed_sync(fn, *args):
+    """同步调用并返回 (结果, 耗时毫秒)。"""
+    started_at = time.perf_counter()
+    result = fn(*args)
+    return result, (time.perf_counter() - started_at) * 1000
+
+
+async def score_risk_parallel_with_usage(
+    client: LlmRiskClient, material: str
+) -> tuple[int, RiskLevel, UsageSnapshot, UsageSnapshot, float, float]:
+    """并行执行欺诈/舆情并保留各自 usage 与耗时；单项异常保守兜底，不取消另一项。"""
+    fraud_future = asyncio.to_thread(_timed_sync, client.score_fraud_with_usage, material)
+    sentiment_future = asyncio.to_thread(_timed_sync, client.classify_sentiment_with_usage, material)
+    fraud_res, sentiment_res = await asyncio.gather(fraud_future, sentiment_future, return_exceptions=True)
+
+    fraud_value = 100
+    fraud_usage = _estimated_usage(f"fraud:{material}", "100")
+    fraud_ms = 0.0
+    if not isinstance(fraud_res, Exception):
+        (value, usage), fraud_ms = fraud_res
+        fraud_value = max(0, min(100, int(value)))
+        fraud_usage = usage
+
+    sentiment_value: RiskLevel = "HIGH"
+    sentiment_usage = _estimated_usage(f"sentiment:{material}", "HIGH")
+    sentiment_ms = 0.0
+    if not isinstance(sentiment_res, Exception):
+        (value, usage), sentiment_ms = sentiment_res
+        sentiment_value = value if value in ("LOW", "MEDIUM", "HIGH") else "HIGH"
+        sentiment_usage = usage
+
+    return fraud_value, sentiment_value, fraud_usage, sentiment_usage, fraud_ms, sentiment_ms
+
+
+async def score_risk_parallel_with_usage_and_fallbacks(
+    client: LlmRiskClient, material: str
+) -> tuple[int, RiskLevel, UsageSnapshot, UsageSnapshot, float, float, list[str]]:
+    """并行执行欺诈/舆情并保留 usage/耗时/显式兜底原因（工单 8）。"""
+    fraud_future = asyncio.to_thread(_timed_sync, client.score_fraud_with_usage_and_reason, material)
+    sentiment_future = asyncio.to_thread(_timed_sync, client.classify_sentiment_with_usage_and_reason, material)
+    fraud_res, sentiment_res = await asyncio.gather(fraud_future, sentiment_future, return_exceptions=True)
+
+    fallback_reasons: list[str] = []
+    fraud_value = 100
+    fraud_usage = _estimated_usage(f"fraud:{material}", "100")
+    fraud_ms = 0.0
+    if not isinstance(fraud_res, Exception):
+        (value, usage, reason), fraud_ms = fraud_res
+        fraud_value = max(0, min(100, int(value)))
+        fraud_usage = usage
+        if reason:
+            fallback_reasons.append(reason)
+    else:
+        fallback_reasons.append("llm_call_failed")
+
+    sentiment_value: RiskLevel = "HIGH"
+    sentiment_usage = _estimated_usage(f"sentiment:{material}", "HIGH")
+    sentiment_ms = 0.0
+    if not isinstance(sentiment_res, Exception):
+        (value, usage, reason), sentiment_ms = sentiment_res
+        sentiment_value = value if value in ("LOW", "MEDIUM", "HIGH") else "HIGH"
+        sentiment_usage = usage
+        if reason:
+            fallback_reasons.append(reason)
+    else:
+        fallback_reasons.append("llm_call_failed")
+
+    return (
+        fraud_value,
+        sentiment_value,
+        fraud_usage,
+        sentiment_usage,
+        fraud_ms,
+        sentiment_ms,
+        fallback_reasons,
+    )
 
 
 def _mock_fraud_score(material: str) -> int:

@@ -69,7 +69,7 @@ def test_invalid_fraud_json_keeps_actual_provider_usage(monkeypatch):
     assert usage.total_tokens == 42
 
 
-def test_nodes_propagate_usage_and_latency(monkeypatch):
+def test_risk_node_propagates_usage_and_parallel_latency(monkeypatch):
     from app.agents import nodes
     from app.agents.llm import UsageSnapshot
 
@@ -83,8 +83,7 @@ def test_nodes_propagate_usage_and_latency(monkeypatch):
     monkeypatch.setattr(nodes, "_risk_client", FakeRisk())
     state = {"amount": 128.0, "ocr_text": "清晰商品图"}
 
-    nodes.fraud_node(state)
-    nodes.sentiment_node(state)
+    nodes.risk_node(state)
 
     assert state["fraud_score"] == 21
     assert state["sentiment"] == "LOW"
@@ -92,6 +91,7 @@ def test_nodes_propagate_usage_and_latency(monkeypatch):
     assert state["token_usage"]["sentiment"]["total_tokens"] == 9
     assert state["latency_breakdown"]["fraud_ms"] >= 0
     assert state["latency_breakdown"]["sentiment_ms"] >= 0
+    assert state["latency_breakdown"]["risk_parallel_ms"] >= 0
 
 
 def test_ocr_and_decision_nodes_record_stage_latency(monkeypatch):

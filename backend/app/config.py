@@ -46,6 +46,19 @@ class Settings(BaseSettings):
     # ===== LangGraph Checkpointer =====
     # postgres（默认，零额外依赖） | redis（需 RedisJSON 模块）
     CHECKPOINTER_BACKEND: str = "postgres"
+    CHECKPOINTER_TTL_MINUTES: int = 1440   # 挂起上下文在 Redis 的保留时长（默认 24h）
+
+    # ===== 安全网关（Critic 注入检测 + DLP 脱敏，对应 docs/sec_spec.md）=====
+    SECURITY_GATEWAY_ENABLED: bool = True
+    DLP_ENABLED: bool = True
+    SECURITY_INJECTION_THRESHOLD: float = 0.85
+    SECURITY_LLM_ENHANCE: bool = False   # 可选 LLM 增强，失败不影响规则拦截
+
+    # ===== 工单 8：LLM 重试 / 意图过滤 / 死信队列 =====
+    LLM_RETRY_MAX_ATTEMPTS: int = 3      # 首次调用 + 最多 2 次重试
+    LLM_RETRY_BASE_DELAY_SECONDS: float = 1.0
+    INTENT_FILTER_ENABLED: bool = True   # Node A 确定性意图过滤
+    DLQ_STREAM_KEY: str = "stream:tickets:dead"
 
     # ===== OCR（本地 PaddleOCR）=====
     OCR_DEVICE: str = "cpu"  # cpu | gpu
@@ -60,6 +73,14 @@ class Settings(BaseSettings):
 
     # ===== 事件推送 =====
     EVENT_CHANNEL_PREFIX: str = "events:ticket"
+
+    # ===== Telemetry（Langfuse 可选；上报失败不得阻塞业务主流程）=====
+    TELEMETRY_ENABLED: bool = False
+    TELEMETRY_PROVIDER: str = "noop"   # noop | langfuse
+    LANGFUSE_PUBLIC_KEY: str = ""
+    LANGFUSE_SECRET_KEY: str = ""
+    LANGFUSE_HOST: str = "https://cloud.langfuse.com"
+    LANGFUSE_BASE_URL: str = ""        # 兼容旧命名；非空时优先于 LANGFUSE_HOST
 
     # ===== CubeSandbox（未完整配置时禁止创建远程沙箱）=====
     SANDBOX_PROVIDER: str = "disabled"

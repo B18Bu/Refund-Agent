@@ -1,0 +1,88 @@
+{
+  "judge_provider": "mock",
+  "case_count": 10,
+  "judged": 0,
+  "skipped": 10,
+  "results": [
+    {
+      "case_id": "G01",
+      "actual_route": "AUTO_REFUND",
+      "expected_route": "AUTO_REFUND",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G02",
+      "actual_route": "AUTO_REFUND",
+      "expected_route": "AUTO_REFUND",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G03",
+      "actual_route": "HUMAN_REVIEW",
+      "expected_route": "HUMAN_REVIEW",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G04",
+      "actual_route": "HUMAN_REVIEW",
+      "expected_route": "HUMAN_REVIEW",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G05",
+      "actual_route": "HUMAN_REVIEW",
+      "expected_route": "HUMAN_REVIEW",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G06",
+      "actual_route": "HUMAN_REVIEW",
+      "expected_route": "HUMAN_REVIEW",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G07",
+      "actual_route": "HUMAN_REVIEW",
+      "expected_route": "HUMAN_REVIEW",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G08",
+      "actual_route": "HUMAN_REVIEW",
+      "expected_route": "HUMAN_REVIEW",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G09",
+      "actual_route": "HUMAN_REVIEW",
+      "expected_route": "HUMAN_REVIEW",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    },
+    {
+      "case_id": "G10",
+      "actual_route": "HUMAN_REVIEW",
+      "expected_route": "HUMAN_REVIEW",
+      "correct": true,
+      "judge": null,
+      "judge_status": "SKIPPED"
+    }
+  ]
+}

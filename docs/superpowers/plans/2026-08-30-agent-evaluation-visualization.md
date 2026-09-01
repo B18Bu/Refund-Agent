@@ -306,7 +306,7 @@ git commit -m "feat: 展示单笔工单评测成本"
 ### 任务 7：完整门禁、迁移演练与 Docker 验收
 
 **文件：**
-- 修改：`docs/agent评测优化方案.md`（只更新本功能完成状态和验证证据）
+- 修改：`docs/implementation-plan.md`（只更新本功能完成状态和验证证据）
 - 创建：`docs/evidence/agent-evaluation-visualization.md`
 
 - [x] **步骤 1：运行完整后端门禁**
@@ -338,7 +338,7 @@ git commit -m "feat: 展示单笔工单评测成本"
 `docs/evidence/agent-evaluation-visualization.md` 必须记录命令、退出码、测试数量、Golden 结果、迁移两次结果、主管/客服 HTTP 状态和浏览器尺寸；任何未执行项目明确标为未验证。
 
 ```powershell
-git add docs/agent评测优化方案.md docs/evidence/agent-evaluation-visualization.md
+git add docs/implementation-plan.md docs/evidence/agent-evaluation-visualization.md
 git commit -m "docs: 记录Agent评测可视化验收证据"
 ```
 

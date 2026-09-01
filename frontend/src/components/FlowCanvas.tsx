@@ -25,8 +25,10 @@ const STATUS_CN: Record<string, string> = {
 const NODE_ORDER: { key: string; label: string }[] = [
   { key: 'Intake', label: '录入' },
   { key: 'OCR', label: '凭证识别' },
-  { key: 'Fraud', label: '风控' },
-  { key: 'Sentiment', label: '舆情' },
+  { key: 'Security', label: '安全校验' },
+  { key: 'Intent', label: '意图识别' },
+  { key: 'Risk', label: '风控/舆情' },
+  { key: 'Fallback', label: '异常兜底' },
   { key: 'Decision', label: '决策' },
   { key: 'HumanReview', label: '人工审批' },
 ]
@@ -43,6 +45,7 @@ export default function FlowCanvas({ traces }: { traces: Trace[] }) {
   const statusMap: Record<string, string> = {}
   for (const t of traces) statusMap[t.agent_name] = t.status
 
+  const canvasWidth = NODE_ORDER.length * 200
   const nodes = NODE_ORDER.map((n, i) => ({
     name: n.key,
     x: i * 200,
@@ -76,5 +79,9 @@ export default function FlowCanvas({ traces }: { traces: Trace[] }) {
       },
     ],
   }
-  return <ReactECharts option={option} style={{ height: 320 }} />
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <ReactECharts option={option} style={{ height: 320, width: canvasWidth }} />
+    </div>
+  )
 }

@@ -17,6 +17,23 @@
 - Worker 在首次 `START` 结束或挂起前，以失败隔离方式写入幂等评测观测副本；`RESUME` 不重复写入。
 - Token 优先采用供应商真实 usage，解析失败仍保留已取得的真实 usage；缺失时明确标记离线估算。基线和当前值覆盖相同的风控、舆情调用范围。
 - 使用确定性规则计算正确性、安全性、解释完整性三维评分，不用模型参与路由、重试或数值转换。
+- **Langfuse 链路追踪**：公共 ingestion API 适配器（Basic 认证、脱敏、有界后台队列非阻塞上报），
+  `trace_id` 贯穿 Worker 图状态、`tickets.trace_id` 与 Langfuse trace；
+  已在 `us.cloud.langfuse.com` 验证：工单 9512 的 trace 含 Intake/OCR/Risk/Decision 4 个 span。
+- **风险并行化**：Fraud/Sentiment 由串行节点重构为 `asyncio.gather(return_exceptions=True)`
+  并行节点，保留各自 token usage 与 `fraud_ms/sentiment_ms/risk_parallel_ms`。
+- **三维判断与管理建议**：决策 Agent 输出价格一致性 / 订单真实性 / 商品一致性
+  审计结果与退款状态管理建议（`decision_reasons / evidence_audit / management_suggestion`
+  落库并在详情页展示）。
+- **三态流转展示**：前端按 Running → Suspended → Completed 展示状态流转 Steps。
+- **挂起上下文 Redis 序列化**：`CHECKPOINTER_BACKEND=redis`（redis-stack + RedisJSON），
+  LangGraph 挂起时的图上下文 JSON 序列化写入 Redis（默认 TTL 24h），审批恢复从 Redis 续跑。
+- **安全网关（工单 6）**：DLP 输入脱敏 + Critic 注入/越狱检测接入决策流
+  （`ocr → critic → risk`），命中强制人工并记录 `security_injection_detected`；
+  100 样本红蓝对抗：注入拦截率 100%、越狱 100%、DLP 漏报/误报 0%。
+- **LLM-as-a-judge**：DeepSeek 可用时对 10 条 Golden 用例输出三维评审与理由（`scripts/judge_golden.py`）；
+  mock 时明确 SKIPPED，确定性规则仍是唯一事实来源。
+- **压测与容灾证据**：100 用户 Locust 报告、崩溃自动重启与恢复时间记录（见 deploy-report.md）。
 - 新增主管专属汇总与单笔详情 API；客服访问返回 403，空数据与 Golden 报告缺失均显式降级。
 - 新增主管侧栏“Agent 评测”页面和工单详情“评测与成本”下钻卡片，展示 Token 数值、百分比、趋势、评分、OCR/风控/舆情/决策耗时和数据来源；Token 增加时显式显示“增加/增幅”。
 - 工单 SSE/轮询刷新会同步重取评测详情；没有真实工单评测时仍独立展示 Golden 结果。
@@ -24,10 +41,16 @@
 
 本轮未实现、仍按原方案保留为后续方向：
 
-- 真实 CubeSandbox 模板、代理节点和生产 OfficeCLI 文件处理。
-- Langfuse/LangSmith 外部链路观测、真实 LLM-as-a-judge 和旧 Prompt 影子调用。
-- 成本币种换算、模型/Prompt 版本筛选、100 用户 Locust 压测和故障恢复演练。
+- ~~真实 CubeSandbox 模板、代理节点和生产 OfficeCLI 文件处理~~（2026-08-31 范围调整：沙箱当前无法部署，沙箱相关部分整体推迟，不纳入本期验收）。
+- 旧 Prompt 影子调用、成本币种换算、模型/Prompt 版本筛选。
+- 100 用户压测 P95 410ms 未达 300ms 目标（QPS 370 与 0 错误达标），优化见 deploy-report.md。
 - 前端按路由拆包；当前生产构建仍有约 2.38 MB 的主包体积警告，但不影响本轮构建通过。
+
+> **范围调整记录（2026-08-31）：** 沙箱部分（真实 CubeSandbox、受限 Docker 适配器、
+> OfficeCLI/Word/Excel 读写、沙箱逃逸测试及 `docs/evidence/sandbox-escape-report.md`）
+> 因当前环境无法部署沙箱而整体推迟实现。AGENTS.md 中的沙箱安全护栏继续保留；
+> 未配置沙箱时必须显式失败、禁止回退宿主机执行、沙箱实例必须 `try/finally` 销毁。
+> 后续沙箱可用时，按本方案任务六恢复实施。
 
 完整命令、退出码、测试数量、迁移演练和角色验收记录见 [Agent 评测可视化验收证据](evidence/agent-evaluation-visualization.md)。
 
@@ -37,7 +60,7 @@
 
 - `AUTO_REFUNDED` 表示自动决策结果，不调用真实支付退款；现有 `APPROVED/REJECTED` 人工审批语义保持不变。
 - 128 元仅在金额不超过 300、OCR 置信度不低于 0.60、欺诈分低于 50、舆情为 LOW 时自动通过；任何不确定性仍进入 `SUSPENDED`。
-- 生产 Word/Excel 的读取、修改、写回必须在 CubeSandbox 内完成；宿主机只接收校验后的 output 文件。
+- ~~生产 Word/Excel 的读取、修改、写回必须在 CubeSandbox 内完成；宿主机只接收校验后的 output 文件~~（2026-08-31 沙箱推迟，本期不验收；护栏规则仍生效）。
 - 评测完成标准：10 条 Golden Dataset 可重复运行；规则正确性、安全性、解释完整性总分至少 5/6，安全分为 0 直接失败。
 - 成本完成标准：同模型、同输入、同 tokenizer 下 Prompt Token 降低至少 30%，正确性和安全得分不下降。
 - 性能完成标准：Fraud/Sentiment 使用 `asyncio.gather(..., return_exceptions=True)`；Telemetry 不阻塞 API；压测记录 QPS、P95、错误率和资源。
@@ -126,7 +149,7 @@ fraud, sentiment = await asyncio.gather(
 - [ ] 多图 OCR 使用有界并发后取最低置信度；保留现有同步 Graph 兼容入口，Worker 统一通过异步执行器调用。
 - [ ] 执行 `pytest backend/tests/test_async_risk.py backend/tests/test_graph.py -q`，提交性能对比报告。
 
-## 7. 任务六：安全沙箱和 OfficeCLI
+## 7. 任务六：安全沙箱和 OfficeCLI（2026-08-31 起推迟）
 
 **文件：** 创建 `backend/app/sandbox/{base,policy,docker_adapter,cube,officecli,lifecycle}.py`、`backend/tests/test_sandbox.py`；修改 Worker、配置和 Compose。
 

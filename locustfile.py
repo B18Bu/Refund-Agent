@@ -19,7 +19,7 @@ class ApiUser(HttpUser):
         else:
             self.headers = {}
 
-    @task(3)
+    @task(1)
     def submit_ticket(self):
         self.client.post(
             "/api/tickets",
@@ -27,9 +27,32 @@ class ApiUser(HttpUser):
             headers={**self.headers, "X-Idempotency-Key": uuid.uuid4().hex},
         )
 
-    @task(2)
+    @task(3)
     def list_tickets(self):
         self.client.get("/api/tickets", headers=self.headers)
+
+    @task(2)
+    def view_ticket_detail(self):
+        resp = self.client.get("/api/tickets", headers=self.headers)
+        if resp.status_code == 200 and resp.json():
+            self.client.get(f"/api/tickets/{resp.json()[0]['id']}", headers=self.headers)
+
+    @task(1)
+    def approve_suspended(self):
+        resp = self.client.get("/api/tickets", headers=self.headers)
+        if resp.status_code == 200:
+            for ticket in resp.json():
+                if ticket.get("status") == "SUSPENDED":
+                    with self.client.post(
+                        f"/api/tickets/{ticket['id']}/approve",
+                        json={"action": "APPROVE", "comment": "locust"},
+                        headers=self.headers,
+                        catch_response=True,
+                    ) as r:
+                        # 409 是“已审批/非挂起”的业务预期冲突，不是系统故障
+                        if r.status_code == 409:
+                            r.success()
+                    break
 
     @task(1)
     def healthz(self):

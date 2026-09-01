@@ -23,7 +23,11 @@ def get_checkpointer() -> Iterator:
     if backend == "redis":
         from langgraph.checkpoint.redis import RedisSaver
 
-        with RedisSaver.from_conn_string(settings.REDIS_URL) as saver:
+        with RedisSaver.from_conn_string(
+            settings.REDIS_URL,
+            ttl={"default_ttl": settings.CHECKPOINTER_TTL_MINUTES},
+        ) as saver:
+            saver.setup()  # 创建 RediSearch 索引（幂等）
             yield saver
     elif backend == "postgres":
         from langgraph.checkpoint.postgres import PostgresSaver

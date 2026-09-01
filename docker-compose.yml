@@ -20,10 +20,10 @@ services:
       timeout: 5s
       retries: 10
 
-  # Redis：Streams 队列 / 幂等键 / 审批锁（Checkpointer 走 PostgreSQL，见 CHECKPOINTER_BACKEND）
+  # Redis：Streams 队列 / 幂等键 / 审批锁 / 挂起 Checkpointer（RedisJSON 序列化图上下文）
   redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
+    image: redis/redis-stack-server:latest
+    command: ["redis-stack-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
     volumes:
@@ -41,7 +41,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
       REDIS_URL: redis://redis:6379/0
-      CHECKPOINTER_BACKEND: postgres
+      CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-secret-in-production}
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
@@ -49,6 +49,12 @@ services:
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       PROMPT_VERSION: ${PROMPT_VERSION:-refund-v1}
       GOLDEN_REPORT_PATH: /app/artifacts/golden-report.json
+      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}
+      TELEMETRY_PROVIDER: ${TELEMETRY_PROVIDER:-noop}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
       UPLOAD_DIR: /data/uploads
       OCR_DEVICE: cpu
       OCR_LANG: ch
@@ -78,12 +84,18 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
       REDIS_URL: redis://redis:6379/0
-      CHECKPOINTER_BACKEND: postgres
+      CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       PROMPT_VERSION: ${PROMPT_VERSION:-refund-v1}
+      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}
+      TELEMETRY_PROVIDER: ${TELEMETRY_PROVIDER:-noop}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
       UPLOAD_DIR: /data/uploads
       OCR_DEVICE: cpu
       OCR_LANG: ch

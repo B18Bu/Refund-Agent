@@ -9,6 +9,7 @@
 import json
 import logging
 import time
+import uuid
 from datetime import datetime, timezone
 
 from langgraph.types import Command
@@ -20,7 +21,9 @@ from app.config import settings
 from app.db import SessionLocal
 from app.evaluation.repository import record_evaluation, should_record_evaluation
 from app.models import AgentTrace, Decision, Ticket, TicketStatus
+from app.observability.langfuse import emit_refund_trace
 from app.redis_client import get_redis
+from app.security.gateway import DLP
 
 logger = logging.getLogger("worker")
 
@@ -102,6 +105,30 @@ def run_once() -> int:
             except Exception as e:
                 logger.exception("process error: %s", e)
                 # A-03：不可恢复异常 → 先落 FAILED，再 XACK（保证不丢消息且状态可审计）
+                trace_id = fields.get("trace_id") or uuid.uuid4().hex
+                emit_refund_trace(
+                    trace_id=trace_id,
+                    ticket_id=int(fields["ticket_id"]),
+                    spans=[],
+                    error_code=ERR_PROCESS_FAILED,
+                )
+                try:
+                    # 工单 8：失败消息进死信队列（含原因、trace_id、重试计数），与原落库并存
+                    redis.xadd(
+                        settings.DLQ_STREAM_KEY,
+                        {
+                            "ticket_id": fields.get("ticket_id", ""),
+                            "thread_id": fields.get("thread_id", ""),
+                            "trace_id": trace_id,
+                            "error_code": ERR_PROCESS_FAILED,
+                            "error_message": f"Worker 处理异常: {e}"[:2000],
+                            "retry_count": "0",
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                        },
+                        maxlen=1000,
+                    )
+                except Exception as e2:
+                    logger.error("DLQ 写入失败: %s", e2)
                 try:
                     mark_failed(int(fields["ticket_id"]), ERR_PROCESS_FAILED, f"Worker 处理异常: {e}")
                 except Exception as e2:
@@ -114,8 +141,10 @@ def run_once() -> int:
 _NODE_DISPLAY = {
     "intake": "Intake",
     "ocr": "OCR",
-    "fraud": "Fraud",
-    "sentiment": "Sentiment",
+    "critic": "Security",
+    "intent": "Intent",
+    "risk": "Risk",
+    "fallback": "Fallback",
     "decision": "Decision",
     "human_review": "HumanReview",
 }
@@ -149,9 +178,11 @@ def publish_event(ticket_id: int, event: str, payload: dict) -> None:
 def process(fields: dict) -> None:
     ticket_id = int(fields["ticket_id"])
     thread_id = fields["thread_id"]
+    trace_id = fields.get("trace_id") or uuid.uuid4().hex
     msg_type = fields.get("type", "START")
     resume_action = fields.get("resume_action")
     is_resume = msg_type.upper() == "RESUME" or bool(resume_action)
+    spans: list[dict] = []
 
     with get_checkpointer() as checkpointer:
         graph = build_graph().compile(checkpointer=checkpointer)
@@ -167,6 +198,7 @@ def process(fields: dict) -> None:
             # stream 模式捕获 human_review 节点输出（approval_action 落库轨迹）
             for _ in graph.stream(Command(resume={"action": resume_action}), config=cfg, stream_mode="updates"):
                 pass
+            spans.append({"name": "HumanReview", "status": "SUCCESS", "output": {"action": resume_action}})
         else:
             with SessionLocal() as db:
                 t = db.get(Ticket, ticket_id)
@@ -174,10 +206,11 @@ def process(fields: dict) -> None:
                     raise TicketNotFound(f"工单 {ticket_id} 不存在")
                 initial = {
                     "ticket_id": str(ticket_id),
+                    "trace_id": trace_id,
                     "amount": float(t.amount),
                     "image_paths": t.image_paths or [],
                 }
-            update_ticket(thread_id, status=TicketStatus.RUNNING)
+            update_ticket(thread_id, status=TicketStatus.RUNNING, trace_id=trace_id)
             # stream 遇 interrupt 不抛异常；updates 模式逐节点回调写轨迹
             for chunk in graph.stream(initial, config=cfg, stream_mode="updates"):
                 for node_name, node_out in (chunk or {}).items():
@@ -187,19 +220,38 @@ def process(fields: dict) -> None:
                     status = "SUSPENDED" if node_name == "human_review" else "SUCCESS"
                     summary = None
                     if node_name == "ocr":
-                        summary = node_out.get("ocr_text", "")
-                    elif node_name == "fraud":
-                        summary = f"fraud_score={node_out.get('fraud_score')}"
-                    elif node_name == "sentiment":
-                        summary = f"sentiment={node_out.get('sentiment')}"
+                        summary = DLP.mask(node_out.get("ocr_text", ""))[0]
+                    elif node_name == "critic":
+                        summary = (
+                            f"risk={node_out.get('critic_risk')} "
+                            f"flags={','.join(node_out.get('security_flags', []))}"
+                        )
+                    elif node_name == "intent":
+                        summary = (
+                            f"route={node_out.get('intent_route')} "
+                            f"label={node_out.get('intent_label')} "
+                            f"rules={','.join(node_out.get('intent_hit_rules', []))}"
+                        )
+                    elif node_name == "risk":
+                        summary = (
+                            f"fraud_score={node_out.get('fraud_score')} "
+                            f"sentiment={node_out.get('sentiment')} "
+                            f"parallel_ms={node_out.get('latency_breakdown', {}).get('risk_parallel_ms')}"
+                        )
+                    elif node_name == "fallback":
+                        summary = f"fallback={','.join(node_out.get('fallback_reasons', [])) or 'none'}"
                     elif node_name == "decision":
                         summary = f"{node_out.get('decision', '')}: {','.join(node_out.get('decision_reasons', []))}"
+                        if node_out.get("management_suggestion"):
+                            summary += f" | 建议：{node_out['management_suggestion']}"
                     write_trace(ticket_id, display, status, summary)
+                    spans.append({"name": display, "status": status, "output": {"summary": summary}})
                     publish_event(ticket_id, "trace_updated", {"agent_name": display, "status": status})
 
         # 判断是否挂起（interrupt 在 human_review 节点）
         snapshot = graph.get_state(cfg)
         state = snapshot.values or {}
+        trace_id = state.get("trace_id") or trace_id
         if should_record_evaluation("RESUME" if is_resume else msg_type):
             record_evaluation(
                 ticket_id=ticket_id,
@@ -215,8 +267,12 @@ def process(fields: dict) -> None:
                 ocr_confidence=state.get("ocr_confidence"),
                 fraud_score=state.get("fraud_score"),
                 sentiment=state.get("sentiment"),
+                decision_reasons=state.get("decision_reasons"),
+                evidence_audit=state.get("evidence_audit"),
+                management_suggestion=state.get("management_suggestion"),
             )
             publish_event(ticket_id, "ticket_status_changed", {"status": "SUSPENDED", "outcome": "PENDING"})
+            emit_refund_trace(trace_id=trace_id, ticket_id=ticket_id, spans=spans, final_decision="PENDING")
             return
 
         # 未挂起 → 读取最终 state 落库
@@ -231,9 +287,13 @@ def process(fields: dict) -> None:
             ocr_confidence=state.get("ocr_confidence"),
             fraud_score=state.get("fraud_score"),
             sentiment=state.get("sentiment"),
+            decision_reasons=state.get("decision_reasons"),
+            evidence_audit=state.get("evidence_audit"),
+            management_suggestion=state.get("management_suggestion"),
             completed_at=datetime.now(timezone.utc),
         )
         publish_event(ticket_id, "completed", {"outcome": final_decision})
+        emit_refund_trace(trace_id=trace_id, ticket_id=ticket_id, spans=spans, final_decision=final_decision)
 
 
 class CheckpointNotFound(Exception):
