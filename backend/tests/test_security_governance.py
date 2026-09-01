@@ -90,3 +90,12 @@ def test_governance_gap_explains_unconfigured_local_ner_degradation():
 
     assert ner_gap["status"] == "partial"
     assert "降级" in ner_gap["description"]
+
+
+def test_governance_gap_records_api_worker_red_blue_fixture_coverage():
+    from app.security.governance import CURRENT_GAPS
+
+    e2e_gap = next(gap for gap in CURRENT_GAPS if gap["key"] == "red_blue_e2e")
+
+    assert e2e_gap["status"] == "partial"
+    assert "API" in e2e_gap["description"]

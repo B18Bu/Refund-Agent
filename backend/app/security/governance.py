@@ -28,8 +28,8 @@ CURRENT_GAPS = [
     {
         "key": "red_blue_e2e",
         "title": "端到端红蓝演练",
-        "description": "尚未覆盖 API 与 Worker 并发链路。",
-        "status": "pending",
+        "description": "测试 fixture 已覆盖 API 建单、Worker 更新和 100 条攻击样本；真实环境报告仍需定期刷新。",
+        "status": "partial",
     },
     {
         "key": "llm_annotation",
