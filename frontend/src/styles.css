@@ -26,6 +26,9 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
 .login-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: linear-gradient(145deg, #edf4ff, var(--color-bg)); }
 .login-panel { width: min(100%, 380px); padding: 32px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; box-shadow: 0 12px 32px rgba(15, 35, 67, 0.1); }
 .login-panel h1 { margin: 0 0 28px; font-size: 24px; line-height: 1.35; text-align: center; }
+.login-test-shortcuts { margin-bottom: 18px; }
+.login-test-shortcuts__button.ant-btn { color: #3b82c4; background: #f7fbff; border-color: #b7d7f3; border-style: dashed; }
+.login-test-shortcuts__button.ant-btn:hover, .login-test-shortcuts__button.ant-btn:focus-visible { color: #1677ff; background: #edf7ff; border-color: #69b1ff; }
 .ticket-detail-header { margin-bottom: 16px; }
 .approval-actions__comment { width: 240px; }
 .screen-page { min-height: calc(100vh - 112px); margin: -24px; padding: 24px; color: #fff; background: #001529; }

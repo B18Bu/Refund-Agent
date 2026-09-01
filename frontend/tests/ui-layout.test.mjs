@@ -38,3 +38,15 @@ test('工单详情必须展示脱敏的动作层策略审计状态', () => {
   assert.match(detail, /ACTION_POLICY_CN/)
   assert.match(detail, /未识别策略原因/)
 })
+
+test('登录页测试快捷键只填入演示凭据且不提交表单', () => {
+  const login = read('pages/Login.tsx')
+  const styles = read('styles.css')
+
+  assert.match(login, /const \[form\] = Form\.useForm\(\)/)
+  assert.match(login, /form\.setFieldsValue\(\{ username: 'cs1', password: 'secret123' \}\)/)
+  assert.match(login, /form\.setFieldsValue\(\{ username: 'sv1', password: 'secret123' \}\)/)
+  assert.match(login, /htmlType="button"/)
+  assert.match(login, /className="login-test-shortcuts__button"/)
+  assert.match(styles, /\.login-test-shortcuts__button\.ant-btn\s*\{[^}]*border-style:\s*dashed/s)
+})
