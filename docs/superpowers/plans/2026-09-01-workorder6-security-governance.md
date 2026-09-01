@@ -36,7 +36,7 @@
 - 创建：`backend/app/security/governance.py`、`backend/tests/test_security_governance.py`、`scripts/run_security_audit.py`
 - 修改：`backend/app/config.py`、`scripts/run_red_blue_test.py`
 
-- [ ] **步骤 1：先写失败测试**
+- [x] **步骤 1：先写失败测试**
 
 ```python
 def test_build_summary_uses_json_reports_and_redacts_runtime_events(tmp_path, db_session):
@@ -64,12 +64,12 @@ def test_build_summary_uses_json_reports_and_redacts_runtime_events(tmp_path, db
     assert "sk-secret-never-return" not in str(summary)
 ```
 
-- [ ] **步骤 2：运行失败测试**
+- [x] **步骤 2：运行失败测试**
 
 运行：`python -m pytest backend/tests/test_security_governance.py -q`
 预期：FAIL，提示 `app.security.governance` 不存在。
 
-- [ ] **步骤 3：实现最小读取与聚合**
+- [x] **步骤 3：实现最小读取与聚合**
 
 在 `backend/app/config.py` 添加：
 
@@ -114,11 +114,11 @@ CURRENT_GAPS = [
 ]
 ```
 
-- [ ] **步骤 4：生成 JSON 证据**
+- [x] **步骤 4：生成 JSON 证据**
 
 `run_red_blue_test.py` 在写 Markdown 前写入 `artifacts/security-red-blue-report.json`，其中包含生成时间、攻击/合法样本数、类别统计、DLP 统计和失败样本 ID。`run_security_audit.py` 用 `Path.rglob("*.py")` 与正则扫描，绝不调用 shell；生成 `artifacts/security-audit-report.json`，并将 `redis.eval` 标记为已审查的 Redis Lua。
 
-- [ ] **步骤 5：验证并提交**
+- [x] **步骤 5：验证并提交**
 
 运行：`python -m pytest backend/tests/test_security_governance.py -q`
 预期：PASS。

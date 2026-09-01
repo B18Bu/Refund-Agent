@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     DLP_ENABLED: bool = True
     SECURITY_INJECTION_THRESHOLD: float = 0.85
     SECURITY_LLM_ENHANCE: bool = False   # 可选 LLM 增强，失败不影响规则拦截
+    SECURITY_RED_BLUE_REPORT_PATH: str = "artifacts/security-red-blue-report.json"
+    SECURITY_DLP_REPORT_PATH: str = "artifacts/security-dlp-report.json"
+    SECURITY_AUDIT_REPORT_PATH: str = "artifacts/security-audit-report.json"
 
     # ===== 工单 8：LLM 重试 / 意图过滤 / 死信队列 =====
     LLM_RETRY_MAX_ATTEMPTS: int = 3      # 首次调用 + 最多 2 次重试

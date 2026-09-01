@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -255,6 +256,28 @@ def run() -> dict:
         report_lines.append(f"| {category} | {len(items)} | {sum(1 for r in items if r['blocked'])} | {cat_rate*100:.1f}% |")
 
     failed = [r for r in attacks if not r["blocked"]]
+    report = {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "attack_count": len(attacks),
+        "legitimate_count": len(legit),
+        "block_rate": injection_rate,
+        "false_positive_block_rate": false_positive_block,
+        "categories": [
+            {
+                "category": category,
+                "sample_count": len(items),
+                "block_rate": rate(items),
+            }
+            for category, items in sorted(by_category.items())
+        ],
+        "dlp_miss_rate": dlp_miss_rate,
+        "dlp_false_positive_rate": dlp_fp_rate,
+        "failed_sample_ids": [r["id"] for r in failed],
+    }
+    json_path = ROOT / "artifacts" / "security-red-blue-report.json"
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
     report_lines.extend([
         "",
         "## 未拦截样本明细",
@@ -262,7 +285,7 @@ def run() -> dict:
     ])
     if failed:
         for r in failed:
-            report_lines.append(f"- `{r['id']}` [{r['category']}] {r['text']}（risk={r['risk']}）")
+            report_lines.append(f"- `{r['id']}` [{r['category']}]")
     else:
         report_lines.append("- 无")
 
@@ -277,15 +300,7 @@ def run() -> dict:
     report_path = ROOT / "docs" / "evidence" / "security-red-blue-report.md"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(report_lines), encoding="utf-8")
-    return {
-        "total": len(samples),
-        "injection_rate": injection_rate,
-        "jailbreak_rate": jailbreak_rate,
-        "dlp_miss_rate": dlp_miss_rate,
-        "dlp_fp_rate": dlp_fp_rate,
-        "false_positive_block_rate": false_positive_block,
-        "failed": [r["id"] for r in failed],
-    }
+    return {**report, "total": len(samples), "injection_rate": injection_rate, "jailbreak_rate": jailbreak_rate}
 
 
 if __name__ == "__main__":
