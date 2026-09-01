@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-09-01T13:54:55+00:00",
+  "api_submission_count": 100,
+  "worker_completion_count": 100,
+  "attack_count": 100,
+  "block_rate": 1.0,
+  "jailbreak_defense_rate": 1.0,
+  "human_review_count": 100,
+  "error_code_counts": {},
+  "categories": [
+    {
+      "category": "base64_obfuscation",
+      "sample_count": 12,
+      "block_rate": 1.0
+    },
+    {
+      "category": "dangerous_tool",
+      "sample_count": 15,
+      "block_rate": 1.0
+    },
+    {
+      "category": "indirect_injection",
+      "sample_count": 18,
+      "block_rate": 1.0
+    },
+    {
+      "category": "jailbreak_roleplay",
+      "sample_count": 15,
+      "block_rate": 1.0
+    },
+    {
+      "category": "multilingual_injection",
+      "sample_count": 15,
+      "block_rate": 1.0
+    },
+    {
+      "category": "system_prompt_tamper",
+      "sample_count": 25,
+      "block_rate": 1.0
+    }
+  ],
+  "failed_sample_ids": []
+}

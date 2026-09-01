@@ -1,0 +1,9 @@
+{
+  "sample_count": 100,
+  "missed_count": 0,
+  "false_positive_count": 0,
+  "accuracy": 1.0,
+  "acceptance_status": "met",
+  "failed_sample_ids": [],
+  "ner_status": "disabled"
+}

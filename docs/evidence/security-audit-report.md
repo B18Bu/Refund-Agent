@@ -1,39 +1,31 @@
 # AI 代码安全与敏感数据泄露审计报告（工单 6）
 
-> 日期：2026-08-31；范围：backend/ 与 scripts/ 全部 Python 代码。
+> 生成时间：2026-09-01；范围：`backend/` 与 `scripts/` 的 Python 源码。
 
-## 1. 危险代码审计（防御性编程）
+## 静态安全审计
 
-检查项：`eval()` / `exec()` / `os.system()` / `shell=True` / `subprocess` 危险调用 / 命令拼接。
+`python scripts/run_security_audit.py` 的结构化结果如下：
 
-| 检查项 | 结果 | 说明 |
-| --- | --- | --- |
-| Python `eval()` | 1 处 | `backend/app/locks.py` 的 `redis.eval` 是 Redis 服务端 Lua（锁释放），不执行用户输入 |
-| Python `exec()` | 0 | - |
-| `os.system()` | 0 | - |
-| `shell=True` / 命令拼接 | 0 | 全仓无 shell 调用（AGENTS.md 护栏一致） |
-| `subprocess` 危险调用 | 0 | - |
+| 检查项 | 计数 | 结论 |
+| --- | ---: | --- |
+| `shell=True` | 0 | 未发现由 Shell 执行的代码路径 |
+| `redis.eval` | 2 | 已审查为 Redis Lua 锁操作，不执行用户输入 |
 
-结论：无将用户输入拼接至代码执行路径的漏洞。
+审计脚本会剔除注释和字符串后再检测，避免将“禁止 shell=True”的说明文字误报为可执行代码。
 
-## 2. 用户输入路径与 PII 泄露点
+## DLP 与注入防护证据
 
-| 输入路径 | 处理 | 审计结论 |
-| --- | --- | --- |
-| 上传文件 | MIME + 魔数 + 重命名 + sha256（storage.py） | 无执行风险 |
-| OCR 文本 → LLM | 新增 DLP 掩码（`masked_ocr_text`）后进入 fraud/sentiment 材料 | 已修复（明文不再进模型） |
-| OCR 文本 → 日志/轨迹 | Worker 轨迹 summary 经 DLP 掩码 | 已修复 |
-| OCR 文本 → Telemetry/Langfuse | `sanitize_payload` 剔除 `ocr_text`/`raw_text` | 不泄露 |
-| OCR 文本 → 内部库（tickets.ocr_text） | 保留原文 | 仅内部审计用途，供客服核实凭证；不随日志/观测外发 |
-| 注入/越狱输入 | Critic 检测，命中强制人工（`security_injection_detected`） | 新增防线已生效 |
+- 本地 DLP 验证集：100 条虚构样本，漏报 0、误报 0、准确率 100.0%，质量门禁为 `met`。
+- 本地 NER：仅在显式配置本地 spaCy 模型路径后加载；当前未启用时会明确降级，且不会下载模型或调用外部服务。
+- 红蓝规则验证：110 条样本（攻击 100、合法 10），攻击拦截率 100.0%，越狱防御率 100.0%，失败样本为空。
+- API→Worker 测试环境演练：100 次建单、100 次 Worker 完成、100 次转人工，错误码为空；报告中只记录类别、计数和样本 ID。
 
-## 3. 脱敏覆盖率验证
+## 数据边界
 
-- DLP 正则覆盖：手机号 / 身份证 / 银行卡 / API Key / 邮箱。
-- 红蓝对抗：100 样本 DLP 漏报率 0%、误报率 0%（详见 `security-red-blue-report.md`）。
-- 安全网关单测：10 项全过（`test_security_gateway.py`）。
+- OCR、攻击文本、原始图片、令牌和密钥不进入治理接口、页面、报告或遥测。
+- LLM Critic 只接收固定长度的 DLP 脱敏摘要，并只记录可用性枚举；它不能更改风险分、命中规则、审批状态或退赔决定。
+- `AUTO_REFUNDED` 仅为数据库决策记录，不调用支付接口。
 
-## 4. 结论
+## 验收结论
 
-未发现可被利用的代码执行漏洞；用户 PII 在 LLM、日志、轨迹、观测四条路径上均已脱敏；
-注入/越狱输入由 Critic 网关拦截并强制人工，不改变审批语义。
+全量后端测试为 152 通过、1 跳过；Golden Dataset 10/10 通过。未发现可执行 Shell 的安全缺口；所有攻击路径都保持可解释的人工复核结果。
