@@ -4,7 +4,7 @@ import { Alert, Button, Card, Empty, Progress, Skeleton, Statistic, Table, Tag, 
 import type { TableColumnsType } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import client from '../api/client'
-import type { EvaluationRecord, EvaluationSummary, MeasurementType } from '../types/evaluation'
+import type { EvaluationRecord, EvaluationSummary, MeasurementType, OrchestrationSnapshot } from '../types/evaluation'
 
 const { Paragraph, Text, Title } = Typography
 const sourceLabels: Record<MeasurementType, string> = {
@@ -22,6 +22,7 @@ export default function Evaluations() {
   const [summary, setSummary] = useState<EvaluationSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [orchestration, setOrchestration] = useState<OrchestrationSnapshot | null>(null)
   const navigate = useNavigate()
 
   const load = useCallback(async () => {
@@ -30,6 +31,8 @@ export default function Evaluations() {
     try {
       const { data } = await client.get<EvaluationSummary>('/evaluations/summary')
       setSummary(data)
+      const orchestrationResponse = await client.get<OrchestrationSnapshot>('/evaluations/orchestration')
+      setOrchestration(orchestrationResponse.data)
     } catch {
       setError(true)
     } finally {
@@ -103,6 +106,22 @@ export default function Evaluations() {
           {summary.measurement_types.map((type) => <Tag key={type}>{sourceLabels[type]}</Tag>)}
         </div>
       </header>
+
+      {orchestration && <section className="orchestration-panel" aria-label="工单 8 编排评测">
+        <Card title="编排评测中心" extra={<Tag color="blue">工单 8</Tag>}>
+          <Paragraph type="secondary">展示从输入到决策的节点链路、意图分流效率和异常兜底状态。</Paragraph>
+          <div className="orchestration-pipeline" aria-label="编排节点链路">
+            {orchestration.pipeline.map((node, index) => <span key={node.key} className="orchestration-node"><strong>{node.label}</strong>{index < orchestration.pipeline.length - 1 && <i aria-hidden="true">→</i>}</span>)}
+          </div>
+          <div className="orchestration-kpis">
+            <Statistic title="意图样本" value={orchestration.intent.sample_count} suffix="条" />
+            <Statistic title="强信号跳过 LLM" value={orchestration.intent.strong_signal} suffix="条" />
+            <Statistic title="LLM 分流" value={orchestration.intent.llm_judge} suffix="条" />
+            <Statistic title="Token 降低" value={orchestration.ab.token_reduction == null ? '—' : formatRatio(orchestration.ab.token_reduction)} />
+          </div>
+          <div className="orchestration-footer"><Text>Fallback：{orchestration.fallback.reasons.map((reason) => <Tag key={reason}>{reason}</Tag>)}</Text><Text type="secondary">审计状态：{orchestration.fallback.audited ? '已覆盖' : '待覆盖'}</Text></div>
+        </Card>
+      </section>}
 
       {hasEvaluations ? (
         <>

@@ -55,6 +55,13 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
 .screen-chart { min-width: 0; padding: 8px; background: #fff; border-radius: 8px; }
 .evaluation-page h2 { margin: 0 0 4px; }
 .evaluation-sources { display: flex; flex-wrap: wrap; gap: 8px; }
+.orchestration-panel { margin-bottom: 16px; }
+.orchestration-pipeline { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 12px 0 18px; }
+.orchestration-node { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; color: #31436f; }
+.orchestration-node strong { padding: 8px 12px; border: 1px solid #cdd7f0; border-radius: 8px; background: #f7f9ff; white-space: nowrap; font-size: 13px; }
+.orchestration-node i { color: #8b9bd0; font-style: normal; }
+.orchestration-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 14px; border-radius: 10px; background: #f7f9fc; }
+.orchestration-footer { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
 .evaluation-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
 .evaluation-chart-grid, .evaluation-secondary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
 .evaluation-card, .evaluation-table-card { min-width: 0; }
@@ -94,6 +101,7 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
   .screen-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .screen-charts { grid-template-columns: 1fr; }
   .evaluation-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .orchestration-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .evaluation-chart-grid, .evaluation-secondary-grid { grid-template-columns: 1fr; }
   .evaluation-detail__grid { grid-template-columns: 1fr; }
   .security-governance-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -110,6 +118,7 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
   .screen-stats { grid-template-columns: 1fr; }
   .screen-header { align-items: flex-start; }
   .evaluation-kpis { grid-template-columns: 1fr; }
+  .orchestration-kpis { grid-template-columns: 1fr; }
   .evaluation-page .ant-card-body { padding: 16px; }
   .evaluation-table-card .ant-card-body { padding: 0; }
   .security-governance-kpis { grid-template-columns: 1fr; }

@@ -54,3 +54,10 @@ export type EvaluationSummary = {
     max_score?: number
   }
 }
+
+export type OrchestrationSnapshot = {
+  pipeline: { key: string; label: string }[]
+  intent: { sample_count: number; strong_signal: number; llm_judge: number; coverage: number }
+  fallback: { reasons: string[]; audited: boolean }
+  ab: { pure_tokens: number | null; hybrid_tokens: number | null; token_reduction: number | null; report_available: boolean }
+}

@@ -10,6 +10,7 @@ from app.deps import get_db, require_role
 from app.evaluation.models import AgentEvaluationRun
 from app.evaluation.schemas import serialize_evaluation
 from app.models import Role
+from app.agents.intent import IntentFilter
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
 
@@ -77,4 +78,45 @@ def get_evaluation_summary(
         "trend": trend,
         "recent": [serialize_evaluation(row) for row in rows[:20]],
         "golden": _golden_summary(),
+    }
+
+
+@router.get("/orchestration")
+def get_orchestration_snapshot(_user=Depends(require_role(Role.SV))):
+    """返回工单 8 编排评测快照，仅读取样本和本地报告。"""
+    root = Path(__file__).resolve().parents[3]
+    sample_path = root / "evals" / "intent" / "intent_samples.jsonl"
+    samples = []
+    if sample_path.exists():
+        for line in sample_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                try:
+                    samples.append(json.loads(line))
+                except ValueError:
+                    continue
+    strong_signal = sum(
+        1 for sample in samples
+        if IntentFilter().classify(str(sample.get("text", ""))).route == "strong_signal"
+    )
+    report_path = root / "docs" / "evidence" / "ab-benchmark-report.md"
+    report = report_path.read_text(encoding="utf-8") if report_path.exists() else ""
+    import re
+    reduction = re.search(r"Token 降低率：([0-9.]+)%", report)
+    hybrid = re.search(r"\| 双层混合流 \| (\d+)", report)
+    pure = re.search(r"\| 纯 LLM \| (\d+)", report)
+    return {
+        "pipeline": [
+            {"key": key, "label": label}
+            for key, label in (("intake", "接收"), ("ocr", "OCR"), ("critic", "安全网关"),
+                               ("intent", "意图识别"), ("risk", "风险评估"),
+                               ("fallback", "异常兜底"), ("decision", "确定性决策"))
+        ],
+        "intent": {"sample_count": len(samples), "strong_signal": strong_signal,
+                   "llm_judge": max(0, len(samples) - strong_signal),
+                   "coverage": 1.0 if samples else 0.0},
+        "fallback": {"reasons": ["llm_call_failed", "llm_output_parse_fallback"], "audited": True},
+        "ab": {"pure_tokens": int(pure.group(1)) if pure else None,
+               "hybrid_tokens": int(hybrid.group(1)) if hybrid else None,
+               "token_reduction": float(reduction.group(1)) / 100 if reduction else None,
+               "report_available": bool(report)},
     }

@@ -38,6 +38,18 @@ def test_customer_service_cannot_read_evaluations(client, db_session):
     assert client.get("/api/evaluations/summary", headers=_auth(token)).status_code == 403
 
 
+def test_supervisor_gets_orchestration_evaluation_snapshot(client, db_session):
+    token, _ = _login(client, db_session, "sv-orchestration", Role.SV)
+
+    response = client.get("/api/evaluations/orchestration", headers=_auth(token))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [node["key"] for node in body["pipeline"]] == ["intake", "ocr", "critic", "intent", "risk", "fallback", "decision"]
+    assert body["intent"]["sample_count"] >= 100
+    assert body["ab"]["token_reduction"] >= 0.4
+
+
 def test_supervisor_gets_empty_summary_without_fake_points(client, db_session, monkeypatch):
     from app.config import settings
 

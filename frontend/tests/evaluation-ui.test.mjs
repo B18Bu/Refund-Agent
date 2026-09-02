@@ -12,6 +12,14 @@ test('评测中心必须是主管路由并显示真实数据来源', () => {
   assert.doesNotMatch(page, /64\.4/)
 })
 
+test('编排评测中心必须展示节点链路、意图分流和兜底状态', () => {
+  const page = read('pages/Evaluations.tsx')
+  assert.match(page, /编排评测中心/)
+  assert.match(page, /orchestration\.pipeline/)
+  assert.match(page, /强信号跳过 LLM/)
+  assert.match(page, /orchestration\.fallback\.reasons/)
+})
+
 test('评测图表必须提供错误恢复和可见数据后备', () => {
   const page = read('pages/Evaluations.tsx')
   assert.match(page, /重新加载/)
