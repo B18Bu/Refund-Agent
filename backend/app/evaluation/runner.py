@@ -4,7 +4,7 @@
     python -m app.evaluation.runner            （backend 目录下）
     scripts/schedule_periodic_eval.py --run-now
 
-指标口径见 docs/workorder8-intent-orchestration-tech-spec.md 第 5 节：
+指标口径见 docs/specs/workorder8-intent-orchestration-tech-spec.md 第 5 节：
 intent_recall（主意图 refund_request）≥90%、hallucination_rate ≤2%、coverage=100%。
 """
 from __future__ import annotations

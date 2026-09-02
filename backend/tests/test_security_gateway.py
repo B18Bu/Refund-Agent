@@ -1,4 +1,4 @@
-"""安全网关（DLP 脱敏 + Critic 注入检测）测试，对应 docs/sec_spec.md。"""
+"""安全网关（DLP 脱敏 + Critic 注入检测）测试，对应 docs/specs/security-gateway.md。"""
 import base64
 
 import pytest

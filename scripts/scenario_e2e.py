@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """两大场景端到端联调 + 并发审批竞态验证（真实 HTTP 服务）。
 
-前置：docker compose up -d postgres redis；启动 api 与 worker；LLM_PROVIDER=mock。
+前置：docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d postgres redis；启动 api 与 worker；LLM_PROVIDER=mock。
 用法：python scripts/scenario_e2e.py [BASE_URL]
 """
 import json
@@ -17,6 +17,9 @@ from collections import Counter
 from PIL import Image, ImageDraw, ImageFont
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8001"
+APPROVAL_ENDPOINT = "/approval"
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+SAMPLE_DIR = ROOT / "docs" / "assets" / "samples"
 
 
 def build_multipart_body(boundary: str, amount: float, image_path: pathlib.Path) -> bytes:
@@ -67,7 +70,7 @@ def req(method, path, payload=None, token=None, hdrs=None):
         return e.code, json.loads(e.read().decode())
 
 
-def make_image(path: str, line1: str, line2: str) -> None:
+def make_image(path: pathlib.Path, line1: str, line2: str) -> None:
     img = Image.new("RGB", (600, 200), "white")
     d = ImageDraw.Draw(img)
     try:
@@ -76,6 +79,7 @@ def make_image(path: str, line1: str, line2: str) -> None:
         font = ImageFont.load_default()
     d.text((30, 40), line1, fill="black", font=font)
     d.text((30, 110), line2, fill="black", font=font)
+    path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path)
 
 
@@ -85,8 +89,9 @@ def main() -> int:
     print("[login] OK")
 
     # ===== 场景一：350 元 + 破损发票 → 挂起 → 主管 APPROVE → APPROVED =====
-    make_image("invoice350.png", "破损商品退款申请", "金额350.00元")
-    st, t = submit_ticket_with_file(350.0, pathlib.Path("invoice350.png"), tok)
+    invoice_path = SAMPLE_DIR / "invoice350.png"
+    make_image(invoice_path, "破损商品退款申请", "金额350.00元")
+    st, t = submit_ticket_with_file(350.0, invoice_path, tok)
     tid1 = t["ticket_id"]
     time.sleep(12)  # Worker 真实 OCR
     st, d = req("GET", f"/api/tickets/{tid1}", token=tok)
@@ -94,7 +99,7 @@ def main() -> int:
     assert d["ocr_confidence"] and d["ocr_confidence"] > 0.6, "S1 OCR 置信度过低"
     print(f"[S1] {tid1} 挂起 [OK]  OCR置信度={d['ocr_confidence']} OCR={d['ocr_text']!r}")
 
-    st, apr = req("POST", f"/api/tickets/{tid1}/approve",
+    st, apr = req("POST", f"/api/tickets/{tid1}{APPROVAL_ENDPOINT}",
                   {"action": "APPROVE", "comment": "情况属实，批准退款"}, sv_tok)
     assert st == 200, f"S1 审批应 200，实际 {st}: {apr}"
     time.sleep(8)
@@ -103,9 +108,10 @@ def main() -> int:
     print(f"[S1] {tid1} APPROVED [OK]")
 
     # ===== 场景二：128 元 + 清晰商品图 → 自动退款 =====
-    make_image("goods128.png", "正品全新商品", "订单号128元")
+    goods_path = SAMPLE_DIR / "goods128.png"
+    make_image(goods_path, "正品全新商品", "订单号128元")
     idem = f"s2-{int(time.time())}"
-    st, t = submit_ticket_with_file(128.0, pathlib.Path("goods128.png"), tok, {"X-Idempotency-Key": idem})
+    st, t = submit_ticket_with_file(128.0, goods_path, tok, {"X-Idempotency-Key": idem})
     tid2 = t["ticket_id"]
     # 幂等重放
     st2, t2 = req("POST", "/api/tickets", {"amount": 999.0}, tok, {"X-Idempotency-Key": idem})
@@ -123,7 +129,7 @@ def main() -> int:
     assert d["status"] == "SUSPENDED"
     results = []
     def approve(i):
-        s, _ = req("POST", f"/api/tickets/{tid3}/approve", {"action": "APPROVE"}, sv_tok)
+        s, _ = req("POST", f"/api/tickets/{tid3}{APPROVAL_ENDPOINT}", {"action": "APPROVE"}, sv_tok)
         results.append(s)
     ths = [threading.Thread(target=approve, args=(i,)) for i in range(6)]
     for x in ths:

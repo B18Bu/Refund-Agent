@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     CHECKPOINTER_BACKEND: str = "postgres"
     CHECKPOINTER_TTL_MINUTES: int = 1440   # 挂起上下文在 Redis 的保留时长（默认 24h）
 
-    # ===== 安全网关（Critic 注入检测 + DLP 脱敏，对应 docs/sec_spec.md）=====
+    # ===== 安全网关（Critic 注入检测 + DLP 脱敏，对应 docs/specs/security-gateway.md）=====
     SECURITY_GATEWAY_ENABLED: bool = True
     DLP_ENABLED: bool = True
     DLP_NER_ENABLED: bool = False

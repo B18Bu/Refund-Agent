@@ -1,6 +1,6 @@
 """企业级 Agent 零信任安全网关：DLP 脱敏 + Critic 注入检测。
 
-对应 docs/sec_spec.md：
+对应 docs/specs/security-gateway.md：
 - DLP：对手机号/身份证/银行卡/API Key/邮箱做掩码，掩码文本供 LLM/日志/观测使用。
 - Critic：规则引擎对输入评分（0~1），阈值（默认 0.85）以上拦截并抛 SecurityException；
   可选 LLM 增强，失败不影响规则结论（AGENTS.md 规则 5：路由/拦截保持确定性）。
