@@ -68,6 +68,7 @@ services:
     volumes:
       - uploads_data:/data/uploads
       - ../../artifacts:/app/artifacts:ro
+      - ../../evals:/app/evals:ro
     depends_on:
       postgres:
         condition: service_healthy

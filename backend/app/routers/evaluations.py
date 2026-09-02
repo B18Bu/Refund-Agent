@@ -85,6 +85,8 @@ def get_evaluation_summary(
 def get_orchestration_snapshot(_user=Depends(require_role(Role.SV))):
     """返回工单 8 编排评测快照，仅读取样本和本地报告。"""
     root = Path(__file__).resolve().parents[3]
+    if not (root / "evals").exists() and (Path("/app") / "evals").exists():
+        root = Path("/app")
     sample_path = root / "evals" / "intent" / "intent_samples.jsonl"
     samples = []
     if sample_path.exists():
