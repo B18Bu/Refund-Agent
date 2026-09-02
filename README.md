@@ -95,8 +95,8 @@ scripts/
 ├── scenario_e2e.py            # 两大核心场景 + 并发审批联调脚本
 ├── test_unit_standalone.py    # 单元测试独立脚本（不依赖 pytest）
 └── test_interface_idempotency.py  # 接口防重测试独立脚本
-docker-compose.yml             # postgres + redis + api + worker + frontend
-locustfile.py                  # 压测脚本
+deploy/compose/docker-compose.yml # postgres + redis + api + worker + frontend
+scripts/loadtest/locustfile.py    # 压测脚本
 ```
 
 ## 快速开始
@@ -110,7 +110,7 @@ python -m venv .venv
 pip install -r requirements.txt
 pip install -r requirements-ocr.txt      # PaddleOCR 本地推理
 # 启动 PostgreSQL + Redis（Streams/幂等/锁；Checkpointer 默认走 PostgreSQL）
-docker compose up -d postgres redis
+docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d postgres redis
 export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/refund
 export REDIS_URL=redis://localhost:6379/0
 export LLM_PROVIDER=mock                 # 无 DeepSeek 密钥时用本地 Mock
@@ -209,7 +209,8 @@ python -m venv .venv                                    # 已存在可跳过
 启动后端（脚本 ②③ 需要；脚本 ① 不需要）：
 
 ```powershell
-docker compose up -d --build       # 一键起全栈：postgres / redis / api / worker / frontend
+docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d --build
+                                      # 一键启动：postgres / redis / api / worker / frontend
 curl http://localhost:8001/healthz # Docker 后端返回 ok 即就绪；本地 Uvicorn 仍使用 8000
 ```
 
@@ -279,16 +280,17 @@ curl http://localhost:8001/healthz # Docker 后端返回 ok 即就绪；本地 U
 | --- | --- | --- |
 | 中文输出乱码 | Windows 控制台默认 GBK 编码 | 运行前先执行 `$env:PYTHONIOENCODING="utf-8"`，或 `chcp 65001` |
 | `ModuleNotFoundError: fakeredis` 等 | 用错了 Python（系统 Python 而非 venv） | 必须用 `.\.venv\Scripts\python.exe` |
-| 登录失败 / `Connection refused` | 后端未启动 | `docker compose up -d api worker` 后再跑 |
+| 登录失败 / `Connection refused` | 后端未启动 | `docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d api worker` 后再跑 |
 | 后端端口不是 8000 | 环境差异 | 脚本追加 `http://IP:端口` 参数 |
 | 脚本 ②③ 后页面多出工单 | 脚本创建的测试数据 | 属正常现象，金额 128 / 350 的即测试工单 |
 
 ## Docker 部署与压测
 
 ```bash
-docker compose up -d --build          # 一键启动全栈
+docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d --build
+                                      # 一键启动全栈
 # 前端 http://localhost:80    Docker API http://localhost:8001/docs
-locust -f locustfile.py --headless -u 100 -r 20 -t 60s --host http://localhost:8001
+locust -f scripts/loadtest/locustfile.py --headless -u 100 -r 20 -t 60s --host http://localhost:8001
 ```
 
 > Checkpointer 默认走 PostgreSQL（`CHECKPOINTER_BACKEND=postgres`），零额外依赖。

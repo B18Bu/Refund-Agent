@@ -35,7 +35,7 @@ services:
       retries: 10
 
   api:
-    build: ./backend
+    build: ../../backend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -67,7 +67,7 @@ services:
       CUBESANDBOX_PROXY_PORT: ${CUBESANDBOX_PROXY_PORT:-8080}
     volumes:
       - uploads_data:/data/uploads
-      - ./artifacts:/app/artifacts:ro
+      - ../../artifacts:/app/artifacts:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,7 +78,7 @@ services:
     restart: unless-stopped
 
   worker:
-    build: ./backend
+    build: ../../backend
     command: python -m app.worker.consumer
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -119,7 +119,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build: ../../frontend
     ports:
       - "80:80"
     depends_on:
