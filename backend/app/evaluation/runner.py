@@ -16,7 +16,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+_ROOT_CANDIDATES = (
+    Path(__file__).resolve().parents[3],
+    Path("/app"),
+    Path.cwd(),
+)
+ROOT = next((candidate for candidate in _ROOT_CANDIDATES if (candidate / "evals").exists()), _ROOT_CANDIDATES[0])
 if str(ROOT / "backend") not in sys.path:
     sys.path.insert(0, str(ROOT / "backend"))
 if str(ROOT) not in sys.path:
