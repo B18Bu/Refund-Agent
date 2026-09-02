@@ -48,3 +48,10 @@ test_ocr.png
 s1_evidence.txt
 s2_evidence.txt
 loadtest_report.html
+
+# 本地代理、浏览器与数据库诊断产物
+.tmp-edge-ui-diagnostic/
+.tmp-cube-*
+bc_*.db
+artifacts/ui-check-*.png
+bash.exe.stackdump
