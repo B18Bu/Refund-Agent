@@ -50,3 +50,14 @@ test('登录页测试快捷键只填入演示凭据且不提交表单', () => {
   assert.match(login, /className="login-test-shortcuts__button"/)
   assert.match(styles, /\.login-test-shortcuts__button\.ant-btn\s*\{[^}]*border-style:\s*dashed/s)
 })
+
+test('登录页必须提供项目视觉区与独立登录卡片布局', () => {
+  const login = read('pages/Login.tsx')
+  const styles = read('styles.css')
+
+  assert.match(login, /className="login-visual"/)
+  assert.match(login, /className="login-panel"/)
+  assert.match(login, /aria-label="风险识别与退款决策流程图"/)
+  assert.match(styles, /\.login-page\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1\.1fr\)/s)
+  assert.match(styles, /@media[\s\S]*\.login-visual/s)
+})
