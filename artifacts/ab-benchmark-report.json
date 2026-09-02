@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-08-31T14:10:18+00:00",
+  "provider": "mock",
+  "measurement_type": "estimated",
+  "sample_count": 100,
+  "pure_llm": {"total_tokens": 4944, "avg_ttft_ms": 1.95, "accuracy": 0.93},
+  "two_layer": {"total_tokens": 2476, "avg_ttft_ms": 0.97, "accuracy": 1.0, "strong_signal_skipped": 50},
+  "token_reduction": 0.4992,
+  "passed": true
+}

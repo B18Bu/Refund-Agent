@@ -126,6 +126,10 @@ def run_ab_benchmark() -> dict:
 
 
 def _write_report(report: dict, rows: list[dict]) -> None:
+    (ROOT / "artifacts").mkdir(parents=True, exist_ok=True)
+    (ROOT / "artifacts" / "ab-benchmark-report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     out = ROOT / "docs" / "evidence" / "ab-benchmark-report.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     pure = report["pure_llm"]

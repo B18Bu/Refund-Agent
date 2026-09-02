@@ -98,6 +98,12 @@ def get_orchestration_snapshot(_user=Depends(require_role(Role.SV))):
         1 for sample in samples
         if IntentFilter().classify(str(sample.get("text", ""))).route == "strong_signal"
     )
+    report_json_path = root / "artifacts" / "ab-benchmark-report.json"
+    report_data = {}
+    try:
+        report_data = json.loads(report_json_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        report_data = {}
     report_path = root / "docs" / "evidence" / "ab-benchmark-report.md"
     report = report_path.read_text(encoding="utf-8") if report_path.exists() else ""
     import re
@@ -117,6 +123,6 @@ def get_orchestration_snapshot(_user=Depends(require_role(Role.SV))):
         "fallback": {"reasons": ["llm_call_failed", "llm_output_parse_fallback"], "audited": True},
         "ab": {"pure_tokens": int(pure.group(1)) if pure else None,
                "hybrid_tokens": int(hybrid.group(1)) if hybrid else None,
-               "token_reduction": float(reduction.group(1)) / 100 if reduction else None,
-               "report_available": bool(report)},
+               "token_reduction": report_data.get("token_reduction", float(reduction.group(1)) / 100 if reduction else None),
+               "report_available": bool(report or report_data)},
     }
