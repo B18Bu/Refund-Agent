@@ -55,3 +55,9 @@ loadtest_report.html
 bc_*.db
 artifacts/ui-check-*.png
 bash.exe.stackdump
+
+# 本地归档内容（不提交）
+docs/archive/local/
+artifacts/local/e2e/
+artifacts/local/diagnostics/
+data/local/
