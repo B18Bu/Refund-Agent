@@ -10,7 +10,8 @@ export default function Login() {
     try {
       const { data } = await client.post('/auth/login', v)
       localStorage.setItem('token', data.access_token)
-      nav(getSessionUser()?.role === 'sv' ? '/monitor' : '/my-tickets')
+      const role = getSessionUser()?.role
+      nav(role === 'customer' ? '/shop' : role === 'cs' ? '/service/refunds' : '/monitor')
     } catch (e: any) {
       message.error(e.response?.data?.detail || '登录失败')
     }
@@ -35,15 +36,16 @@ export default function Login() {
         <div className="login-visual__metrics"><span><strong>100%</strong><small>可追溯</small></span><span><strong>24/7</strong><small>持续守护</small></span><span><strong>0</strong><small>明文外发</small></span></div>
       </section>
       <div className="login-panel">
-        <div className="login-panel__intro"><p className="login-panel__eyebrow">欢迎回来</p><h1>登录控制台</h1><p>使用您的账号进入退赔决策工作台</p></div>
+        <div className="login-panel__intro"><p className="login-panel__eyebrow">欢迎回来</p><h1>登录平台</h1><p>账号将按身份安全进入商城或退款审核工作台</p></div>
         <Form form={form} layout="vertical" onFinish={onFinish}>
           <Form.Item label="测试账号快捷填充" className="login-test-shortcuts">
             <Space wrap>
-              <Button className="login-test-shortcuts__button" type="dashed" htmlType="button" onClick={() => form.setFieldsValue({ username: 'cs1', password: 'secret123' })}>客服账号</Button>
-              <Button className="login-test-shortcuts__button" type="dashed" htmlType="button" onClick={() => form.setFieldsValue({ username: 'sv1', password: 'secret123' })}>主管账号</Button>
+              <Button className="login-test-shortcuts__button" type="dashed" htmlType="button" onClick={() => form.setFieldsValue({ username: 'customer_01', password: 'secret123' })}>普通用户演示账号</Button>
+              <Button className="login-test-shortcuts__button" type="dashed" htmlType="button" onClick={() => form.setFieldsValue({ username: 'customer_service_01', password: 'secret123' })}>客服演示账号</Button>
+              <Button className="login-test-shortcuts__button" type="dashed" htmlType="button" onClick={() => form.setFieldsValue({ username: 'supervisor_01', password: 'secret123' })}>主管演示账号</Button>
             </Space>
           </Form.Item>
-          <Form.Item label="用户名" name="username" rules={[{ required: true, message: '请输入用户名' }]}><Input placeholder="用户名（cs1=客服 / sv1=主管）" /></Form.Item>
+          <Form.Item label="用户名" name="username" rules={[{ required: true, message: '请输入用户名' }]}><Input placeholder="请输入预置账号" /></Form.Item>
           <Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}><Input.Password placeholder="密码" /></Form.Item>
           <Button type="primary" htmlType="submit" block>登录</Button>
         </Form>

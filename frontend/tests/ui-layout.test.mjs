@@ -44,8 +44,9 @@ test('登录页测试快捷键只填入演示凭据且不提交表单', () => {
   const styles = read('styles.css')
 
   assert.match(login, /const \[form\] = Form\.useForm\(\)/)
-  assert.match(login, /form\.setFieldsValue\(\{ username: 'cs1', password: 'secret123' \}\)/)
-  assert.match(login, /form\.setFieldsValue\(\{ username: 'sv1', password: 'secret123' \}\)/)
+  assert.match(login, /form\.setFieldsValue\(\{ username: 'customer_01', password: 'secret123' \}\)/)
+  assert.match(login, /form\.setFieldsValue\(\{ username: 'customer_service_01', password: 'secret123' \}\)/)
+  assert.match(login, /form\.setFieldsValue\(\{ username: 'supervisor_01', password: 'secret123' \}\)/)
   assert.match(login, /htmlType="button"/)
   assert.match(login, /className="login-test-shortcuts__button"/)
   assert.match(styles, /\.login-test-shortcuts__button\.ant-btn\s*\{[^}]*border-style:\s*dashed/s)

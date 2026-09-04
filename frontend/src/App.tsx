@@ -9,6 +9,7 @@ import ProcessOverview from './pages/ProcessOverview'
 import Evaluations from './pages/Evaluations'
 import SecurityGovernance from './pages/SecurityGovernance'
 import AppShell from './components/AppShell'
+import CustomerShell from './components/CustomerShell'
 import { getSessionUser } from './types/auth'
 import ShopHome from './pages/ShopHome'
 import ProductDetail from './pages/ProductDetail'
@@ -24,11 +25,15 @@ function RequireSession() {
 
 function RoleHome() {
   const user = getSessionUser()
-  return <Navigate to={user?.role === 'sv' ? '/monitor' : '/my-tickets'} replace />
+  return <Navigate to={user?.role === 'customer' ? '/shop' : user?.role === 'cs' ? '/service/refunds' : '/monitor'} replace />
 }
 
 function SupervisorOnly({ children }: { children: React.ReactElement }) {
-  return getSessionUser()?.role === 'sv' ? children : <Navigate to="/my-tickets" replace />
+  return getSessionUser()?.role === 'sv' ? children : <Navigate to="/" replace />
+}
+
+function StaffOnly({ children }: { children: React.ReactElement }) {
+  return getSessionUser()?.role === 'customer' ? <Navigate to="/shop" replace /> : children
 }
 
 export default function App() {
@@ -36,10 +41,17 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/shop" element={<ShopHome />} />
-        <Route path="/shop/products/:id" element={<ProductDetail />} />
         <Route element={<RequireSession />}>
-          <Route element={<AppShell />}>
+          <Route element={<CustomerShell />}>
+            <Route path="/shop" element={<ShopHome />} />
+            <Route path="/shop/products/:id" element={<ProductDetail />} />
+            <Route path="/shop/cart" element={<Cart />} />
+            <Route path="/shop/checkout" element={<Checkout />} />
+            <Route path="/shop/orders" element={<Orders />} />
+            <Route path="/shop/orders/:id" element={<OrderDetail />} />
+            <Route path="/shop/returns" element={<Returns />} />
+          </Route>
+          <Route element={<StaffOnly><AppShell /></StaffOnly>}>
             <Route path="/" element={<RoleHome />} />
             <Route path="/workspace" element={<Dashboard showScreen />} />
             <Route path="/my-tickets" element={<MyTickets />} />
@@ -50,12 +62,7 @@ export default function App() {
             <Route path="/screen" element={<SupervisorOnly><Screen /></SupervisorOnly>} />
             <Route path="/evaluations" element={<SupervisorOnly><Evaluations /></SupervisorOnly>} />
             <Route path="/security-governance" element={<SupervisorOnly><SecurityGovernance /></SupervisorOnly>} />
-            <Route path="/shop/products/:id" element={<ProductDetail />} />
-            <Route path="/shop/cart" element={<Cart />} />
-            <Route path="/shop/checkout" element={<Checkout />} />
-            <Route path="/shop/orders" element={<Orders />} />
-            <Route path="/shop/orders/:id" element={<OrderDetail />} />
-            <Route path="/shop/returns" element={<Returns />} />
+            <Route path="/service/refunds" element={<Dashboard showScreen />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

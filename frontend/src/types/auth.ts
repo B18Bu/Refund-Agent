@@ -1,4 +1,4 @@
-export type Role = 'cs' | 'sv'
+export type Role = 'customer' | 'cs' | 'sv'
 
 export type SessionUser = {
   id: string
@@ -22,7 +22,7 @@ export function getSessionUser(): SessionUser | null {
 
   try {
     const payload = JSON.parse(decodeBase64Url(token.split('.')[1]))
-    if ((payload.role !== 'cs' && payload.role !== 'sv') || !payload.sub) return null
+    if ((payload.role !== 'customer' && payload.role !== 'cs' && payload.role !== 'sv') || !payload.sub) return null
     return { id: String(payload.sub), role: payload.role }
   } catch {
     return null
