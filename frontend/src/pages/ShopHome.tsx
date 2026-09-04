@@ -11,6 +11,14 @@ const priceBands = [
   { key: 'high', label: '3000.01 元以上', min_price: 3000.01 },
 ] as const
 
+const categoryRules = [
+  { label: '手机', keywords: ['手机', 'phone'] },
+  { label: '耳机', keywords: ['耳机', 'buds', 'headphone'] },
+  { label: '充电', keywords: ['充电', '电源', 'charger'] },
+  { label: '数据线', keywords: ['数据线', '线'] },
+  { label: '其他配件', keywords: ['路由', '保护', '壳', '膜', '支架'] },
+]
+
 const lowestPrice = (product: Product) => Math.min(...product.variants.filter((item) => item.available).map((item) => item.price))
 
 export default function ShopHome() {
@@ -35,12 +43,19 @@ export default function ShopHome() {
   }
   useEffect(() => { client.get('/shop/brands').then((response) => setBrands(response.data)).catch(() => undefined) }, [])
   useEffect(() => { load() }, [params])
+  const categories = categoryRules.filter(({ keywords }) => items.some((product) => {
+    const searchable = `${product.name} ${product.model || ''} ${product.description || ''}`.toLowerCase()
+    return keywords.some((item) => searchable.includes(item))
+  }))
 
   return <main className="shop-home page-wrap">
     <section className="shop-hero" aria-labelledby="shop-title">
-      <div><p className="shop-eyebrow">VIVO · OPPO 官方商品目录</p><h1 id="shop-title">好物，刚好适合你</h1><p>从实用配件到旗舰设备，所有价格均来自已保存的品牌商品目录。</p></div>
-      <Link className="shop-hero__action" to="/shop/cart">查看购物车</Link>
+      <div className="shop-hero__content"><p className="shop-eyebrow">vivo · 小米官方目录</p><h1 id="shop-title">发现值得入手的科技好物</h1><p>手机与实用配件，价格和可售规格均以每日更新的品牌官方目录为准。</p></div>
+      <div className="shop-hero__actions"><Link className="shop-hero__action" to="/shop/cart">查看购物车</Link><span>真实目录 · 服务端价格</span></div>
     </section>
+    {!loading && !error && categories.length > 0 && <nav className="shop-category-nav" aria-label="商品分类">
+      <span>快速选购</span>{categories.map((item) => <button key={item.label} type="button" onClick={() => setKeyword(item.keywords[0])}>{item.label}</button>)}
+    </nav>}
     <section className="shop-filters" aria-label="商品筛选">
       <Input aria-label="搜索商品" placeholder="搜索型号或商品名称" value={keyword} onChange={(event) => setKeyword(event.target.value)} onPressEnter={load} />
       <Select aria-label="按品牌筛选" allowClear placeholder="全部品牌" value={brand} onChange={setBrand} options={brands.map((item) => ({ label: item, value: item }))} />
@@ -52,7 +67,7 @@ export default function ShopHome() {
         {priceBands.map((item) => <button key={item.key} className={band === item.key ? 'is-active' : ''} type="button" role="tab" aria-selected={band === item.key} onClick={() => setBand(item.key)}>{item.label}</button>)}
       </div>
     </section>
-    {loading ? <div className="shop-loading" aria-live="polite"><Spin size="large" /><span>正在加载最新商品目录</span></div> : error === 'catalog' ? <Empty className="shop-empty" description="商品目录正在初始化，请稍后刷新"><Button type="primary" onClick={load}>重新检查</Button></Empty> : error ? <Empty className="shop-empty" description="商品加载失败，请检查网络后重试"><Button onClick={load}>重新加载</Button></Empty> : items.length === 0 ? <Empty className="shop-empty" description="没有找到符合条件的商品"><Button onClick={() => { setKeyword(''); setBrand(undefined); setBand('all') }}>清空筛选</Button></Empty> : <section className="shop-products" aria-label="商品列表">{items.map((product) => <article className="product-card" key={product.id}>
+    {loading ? <div className="shop-loading" aria-live="polite"><Spin size="large" /><span>正在加载最新商品目录</span></div> : error === 'catalog' ? <Empty className="shop-empty" description="商品目录正在初始化，请稍后刷新"><Button type="primary" onClick={load}>重新检查</Button></Empty> : error ? <Empty className="shop-empty" description="商品加载失败，请检查网络后重试"><Button onClick={load}>重新加载</Button></Empty> : items.length === 0 ? <Empty className="shop-empty" description="没有找到符合条件的商品"><Button onClick={() => { setKeyword(''); setBrand(undefined); setBand('all') }}>清空筛选</Button></Empty> : <section className="shop-products shop-product-grid" aria-label="商品列表">{items.map((product) => <article className="product-card" key={product.id}>
       <Link className="product-card__image" to={`/shop/products/${product.id}`} aria-label={`查看 ${product.name} 详情`}><img src={product.image_url || '/placeholder-product.svg'} alt={`${product.brand} ${product.name}`} loading="lazy" /></Link>
       <div className="product-card__body"><Tag>{product.brand}</Tag><h3>{product.name}</h3><p>{product.model || product.description || '品牌官方精选商品'}</p><strong>¥{lowestPrice(product).toFixed(2)}</strong><span>起</span><Link to={`/shop/products/${product.id}`}>查看商品</Link></div>
     </article>)}</section>}
