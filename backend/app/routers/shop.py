@@ -19,6 +19,11 @@ from app.storage import resolve_abs_path, save_upload
 router = APIRouter(prefix="/api/shop", tags=["shop"])
 
 
+def _require_catalog_ready(db: Session) -> None:
+    if not catalog_is_ready(db):
+        raise HTTPException(503, detail={"code": "CATALOG_NOT_READY", "message": "商品目录尚未完成首次抓取"})
+
+
 def _variant(v: ProductVariant) -> ProductVariantOut:
     return ProductVariantOut(id=v.id, sku=v.sku, variant_name=v.variant_name,
                              spec_json=v.spec_json or {}, price=float(v.price), currency=v.currency,
@@ -43,8 +48,7 @@ def list_products(
     max_price: float | None = Query(None, ge=0),
     db: Session = Depends(get_db),
 ):
-    if not catalog_is_ready(db):
-        raise HTTPException(503, detail={"code": "CATALOG_NOT_READY", "message": "商品目录尚未完成首次抓取"})
+    _require_catalog_ready(db)
     query = db.query(Product).options(joinedload(Product.variants)).filter(Product.status == ProductStatus.ACTIVE)
     if keyword:
         term = f"%{keyword.strip()}%"
@@ -65,8 +69,7 @@ def list_products(
 
 @router.get("/products/{product_id}", response_model=ProductOut)
 def get_product(product_id: int, db: Session = Depends(get_db)):
-    if not catalog_is_ready(db):
-        raise HTTPException(503, detail={"code": "CATALOG_NOT_READY", "message": "商品目录尚未完成首次抓取"})
+    _require_catalog_ready(db)
     product = (db.query(Product).options(joinedload(Product.variants))
                .filter(Product.id == product_id, Product.status == ProductStatus.ACTIVE).first())
     if product is None:
@@ -76,8 +79,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 @router.get("/brands", response_model=list[str])
 def list_brands(db: Session = Depends(get_db)):
-    if not catalog_is_ready(db):
-        raise HTTPException(503, detail={"code": "CATALOG_NOT_READY", "message": "商品目录尚未完成首次抓取"})
+    _require_catalog_ready(db)
     rows = (db.query(Product.brand).filter(Product.status == ProductStatus.ACTIVE)
             .distinct().order_by(Product.brand).all())
     return [row[0] for row in rows]
@@ -172,6 +174,7 @@ def get_cart(user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(g
 
 @router.put("/cart/items/{variant_id}")
 def upsert_cart_item(variant_id: int, body: CartItemUpsert, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
+    _require_catalog_ready(db)
     variant = db.query(ProductVariant).options(joinedload(ProductVariant.product)).filter(ProductVariant.id == variant_id).first()
     if variant is None or not variant.available or variant.product.status != ProductStatus.ACTIVE:
         raise HTTPException(409, "商品规格不存在或不可售")
@@ -197,6 +200,7 @@ def delete_cart_item(variant_id: int, user=Depends(require_roles(Role.CUSTOMER))
 @router.post("/orders", response_model=OrderOut, status_code=201)
 def add_order(body: OrderCreate, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db),
               x_idempotency_key: str | None = Header(None)):
+    _require_catalog_ready(db)
     if not x_idempotency_key or not x_idempotency_key.strip():
         raise HTTPException(400, "必须提供 X-Idempotency-Key")
     try:
