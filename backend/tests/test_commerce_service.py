@@ -3,6 +3,7 @@
 import pytest
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects import postgresql
 
 from app.commerce_models import (
     Address,
@@ -29,6 +30,15 @@ def test_order_service_recalculates_total_from_variant_price(db_session):
     db_session.add(variant)
     db_session.flush()
     assert calculate_order_total([(variant, 2)]) == 3998
+
+
+def test_locked_variant_query_does_not_outer_join_product(db_session):
+    from app.commerce_service import locked_variant_query
+
+    statement = locked_variant_query(db_session, 1).statement.compile(dialect=postgresql.dialect())
+    sql = str(statement).upper()
+    assert "FOR UPDATE" in sql
+    assert "LEFT OUTER JOIN" not in sql
 
 
 def test_commerce_tables_and_status_enums_are_registered(db_engine):

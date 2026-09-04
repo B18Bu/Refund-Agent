@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.commerce_models import (Address, CartItem, Order, OrderItem, OrderItemStatus,
                                   OrderStatus, ProductStatus, ProductVariant, ReturnRequest,
@@ -23,6 +23,11 @@ def set_default_address(db: Session, user_id: int, address: Address) -> None:
     address.is_default = True
 
 
+def locked_variant_query(db: Session, variant_id: int):
+    """锁定规格行，避免 PostgreSQL 拒绝锁定外连接的商品行。"""
+    return db.query(ProductVariant).filter(ProductVariant.id == variant_id).with_for_update()
+
+
 def create_order(db: Session, user_id: int, address_id: int, idempotency_key: str) -> Order:
     existing = db.query(Order).filter(Order.user_id == user_id, Order.idempotency_key == idempotency_key).first()
     if existing:
@@ -35,8 +40,7 @@ def create_order(db: Session, user_id: int, address_id: int, idempotency_key: st
         raise ValueError("购物车为空")
     variants = {}
     for item in cart:
-        variant = (db.query(ProductVariant).options(joinedload(ProductVariant.product))
-                   .filter(ProductVariant.id == item.variant_id).with_for_update().first())
+        variant = locked_variant_query(db, item.variant_id).first()
         if variant is None or not variant.available or variant.product.status != ProductStatus.ACTIVE:
             raise ValueError("购物车中存在不可售商品")
         variants[item.variant_id] = variant
