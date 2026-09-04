@@ -170,7 +170,21 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
  .product-card__body a:last-child { justify-self: end; color: #294ee8; font-weight: 700; }
  .shop-loading, .shop-empty { display: grid; place-items: center; gap: 14px; min-height: 260px; color: #64718a; text-align: center; }
  .shop-subpage { max-width: 900px; padding-top: 42px; padding-bottom: 56px; }
- .shop-subpage h1 { color: #202b45; }
+.shop-subpage h1 { color: #202b45; }
+.product-detail { padding-top: 28px; padding-bottom: 64px; }
+.store-back { padding: 0; color: #53647f; border: 0; background: transparent; cursor: pointer; font: inherit; }
+.product-detail__layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr); gap: clamp(32px, 6vw, 80px); margin-top: 22px; padding: clamp(20px, 4vw, 48px); background: #fff; }
+.product-detail__image { display: grid; place-items: center; aspect-ratio: 1; background: #f4f6fa; }
+.product-detail__image img { width: 100%; height: 100%; object-fit: contain; }
+.product-detail__info { display: flex; flex-direction: column; align-items: flex-start; padding-block: clamp(8px, 3vw, 32px); }
+.product-detail__info h1 { margin: 8px 0 14px; color: #19243b; font-size: clamp(28px, 3vw, 42px); line-height: 1.2; }
+.product-detail__description { margin: 0; color: #67748b; line-height: 1.75; }
+.product-price { display: grid; gap: 4px; width: 100%; margin: 28px 0 22px; padding: 18px 0; border-block: 1px solid #e7ebf1; }
+.product-price span { color: #748099; font-size: 13px; }
+.product-price strong { color: #d9363e; font-size: 32px; line-height: 1; }
+.product-detail__label { display: grid; gap: 8px; width: 100%; margin-top: 16px; color: #34425d; font-weight: 700; }
+.product-detail__label .ant-select, .product-detail__label .ant-input-number { width: min(100%, 360px); }
+.product-detail__actions { display: flex; gap: 12px; margin-top: 28px; }
  .cart-panel, .checkout-panel, .order-card { overflow: hidden; border: 1px solid #e1e7f0; border-radius: 16px; background: #fff; box-shadow: 0 10px 26px rgba(31,48,83,.05); }
  .cart-line { padding: 18px 22px !important; }
  .cart-line div, .address-card { display: grid; gap: 5px; }
