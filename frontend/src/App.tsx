@@ -26,7 +26,7 @@ function RequireSession() {
 
 function RoleHome() {
   const user = getSessionUser()
-  return <Navigate to={user?.role === 'customer' ? '/shop' : user?.role === 'cs' ? '/service/refunds' : '/monitor'} replace />
+  return <Navigate to={user?.role === 'customer' ? '/shop' : user?.role === 'cs' ? '/service/orders' : '/monitor'} replace />
 }
 
 function CustomerOnly({ children }: { children: React.ReactElement }) {
@@ -67,7 +67,8 @@ export default function App() {
             <Route path="/screen" element={<SupervisorOnly><Screen /></SupervisorOnly>} />
             <Route path="/evaluations" element={<SupervisorOnly><Evaluations /></SupervisorOnly>} />
             <Route path="/security-governance" element={<SupervisorOnly><SecurityGovernance /></SupervisorOnly>} />
-            <Route path="/service/refunds" element={<ServiceRefunds />} />
+            <Route path="/service/orders" element={<ServiceRefunds />} />
+            <Route path="/service/refunds" element={<ServiceRefunds defaultTab="returns" />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

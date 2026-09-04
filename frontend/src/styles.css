@@ -228,6 +228,7 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
 .product-card a:focus-visible, .shop-price-tabs button:focus-visible, .customer-brand:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 3px; }
 .service-refunds { max-width: 1180px; }
 .service-refunds__card { margin-top: 20px; }
+.service-refunds__search { max-width: 420px; margin-bottom: 16px; }
 .service-refunds__item { align-items: flex-start !important; gap: 24px; }
 .service-refunds__info { min-width: 0; flex: 1; }
 .service-refunds__info .ant-typography-paragraph { margin: 8px 0; }

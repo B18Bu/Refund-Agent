@@ -19,7 +19,7 @@ const { Header, Sider, Content } = Layout
 type TicketRow = { status: string; outcome: string }
 
 const csItems = [
-  { key: '/service/refunds', icon: <SafetyCertificateOutlined />, label: '退款审核' },
+  { key: '/service/orders', icon: <SafetyCertificateOutlined />, label: '订单中心' },
 ]
 
 export default function AppShell() {
