@@ -10,6 +10,7 @@ import {
   TeamOutlined,
   ReloadOutlined,
   LogoutOutlined,
+  ShoppingOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import client from '../api/client'
@@ -62,6 +63,10 @@ export default function AppShell() {
         { key: '/security-governance', icon: <SafetyCertificateOutlined />, label: '安全治理中心' },
       ]
     : [
+        { key: '/shop', icon: <ShoppingOutlined />, label: '电商首页' },
+        { key: '/shop/cart', icon: <ShoppingOutlined />, label: '购物车' },
+        { key: '/shop/orders', icon: <FileTextOutlined />, label: '我的订单' },
+        { key: '/shop/returns', icon: <SafetyCertificateOutlined />, label: '我的退单' },
         { key: '/workspace', icon: <DashboardOutlined />, label: '退款工作台' },
         { key: '/my-tickets', icon: <TeamOutlined />, label: '我的申请' },
         { key: '/process', icon: <FileTextOutlined />, label: '退款流程总览' },

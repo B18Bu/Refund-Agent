@@ -125,3 +125,6 @@ body { margin: 0; min-width: 320px; background: #f4f6fa; }
   .security-governance-gap { flex-direction: column; }
   .security-governance-card .ant-card-body { padding: 16px; }
 }
+ .shop-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+ .page-wrap { max-width:1200px; margin:0 auto; padding:24px; }
+ @media (max-width: 640px) { .page-wrap { padding:16px; } }

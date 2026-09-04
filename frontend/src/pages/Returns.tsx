@@ -1,0 +1,2 @@
+import {useEffect,useState} from 'react'; import {Empty,List,Tag} from 'antd'; import client from '../api/client'; import type {ReturnRequest} from '../types/shop';
+export default function Returns(){const [rows,setRows]=useState<ReturnRequest[]>([]);useEffect(()=>{client.get('/shop/returns').then(r=>setRows(r.data)).catch(()=>{})},[]);return <div className="page-wrap"><h2>我的退单</h2>{rows.length?<List dataSource={rows} renderItem={r=><List.Item>{r.return_no} · {r.reason}<Tag>{r.status}</Tag></List.Item>}/>:<Empty description="暂无退单"/>}</div>}
