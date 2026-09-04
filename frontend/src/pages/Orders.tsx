@@ -1,2 +1,11 @@
-import {useEffect,useState} from 'react'; import {List,Empty,Tag} from 'antd'; import {Link} from 'react-router-dom'; import client from '../api/client'; import type {Order} from '../types/shop';
-export default function Orders(){const [rows,setRows]=useState<Order[]>([]);useEffect(()=>{client.get('/shop/orders').then(r=>setRows(r.data)).catch(()=>{})},[]);return <div className="page-wrap"><h2>我的订单</h2>{rows.length?<List dataSource={rows} renderItem={o=><List.Item><Link to={`/shop/orders/${o.id}`}>{o.order_no}</Link><Tag>{o.status}</Tag><span>¥{o.total_amount}</span></List.Item>}/>:<Empty description="暂无订单"/>}</div>}
+import { useEffect, useState } from 'react'
+import { Empty, List, Tag } from 'antd'
+import { Link } from 'react-router-dom'
+import client from '../api/client'
+import type { Order } from '../types/shop'
+
+export default function Orders() {
+  const [rows, setRows] = useState<Order[]>([])
+  useEffect(() => { client.get('/shop/orders').then((response) => setRows(response.data)).catch(() => undefined) }, [])
+  return <main className="page-wrap shop-subpage storeflow-page"><p className="shop-eyebrow">MY ORDERS</p><h1>我的订单</h1>{rows.length ? <List className="storeflow-orders" dataSource={rows} renderItem={(order) => <List.Item><div><Link to={`/shop/orders/${order.id}`}>{order.order_no}</Link><span>订单状态</span></div><Tag>{order.status}</Tag><strong>¥{order.total_amount.toFixed(2)}</strong></List.Item>} /> : <Empty className="shop-empty" description="暂无订单" />}</main>
+}
