@@ -1,10 +1,23 @@
 import pytest
+from unittest.mock import AsyncMock
 from pydantic import ValidationError
 
+from app import models  # noqa: F401
 from app.commerce_schemas import ProductDTO
 from app.commerce_models import Product, ProductStatus, ScrapeRun, ScrapeRunStatus
 from app.scraping.adapters import VivoAdapter
 from app.scraping.service import ScrapeService
+
+
+@pytest.mark.asyncio
+async def test_fetch_snapshot_uses_fixed_source_and_does_not_write_products(db_session, monkeypatch):
+    service = ScrapeService(db_session)
+    monkeypatch.setattr(service, "_request_source", AsyncMock(return_value='{"products": []}'))
+
+    rows = await service.fetch_snapshot("vivo")
+
+    assert rows == []
+    assert db_session.query(Product).count() == 0
 
 
 def test_product_dto_rejects_invalid_source_name_and_price():

@@ -14,6 +14,21 @@ class ScrapeService:
     def __init__(self, db: Session):
         self.db = db
 
+    async def _request_source(self, source_site: str) -> str:
+        timeout = httpx.Timeout(10.0, connect=5.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(SOURCE_URLS[source_site], headers={"User-Agent": "CommerceCatalog/1.0"})
+            response.raise_for_status()
+        await asyncio.sleep(settings.SCRAPE_INTERVAL_SECONDS)
+        return response.text
+
+    async def fetch_snapshot(self, source_site: str):
+        """抓取固定来源并返回校验后的内存快照，不写入可售目录。"""
+        if source_site not in ADAPTERS:
+            raise ValueError(f"不支持的商品来源: {source_site}")
+        response_text = await self._request_source(source_site)
+        return ADAPTERS[source_site]().parse(response_text, SOURCE_URLS[source_site])
+
     async def scrape_source(self, source_site: str):
         if source_site not in ADAPTERS:
             raise ValueError(f"不支持的商品来源: {source_site}")
@@ -23,13 +38,8 @@ class ScrapeService:
             self.db.add(run)
             self.db.commit()
             try:
-                timeout = httpx.Timeout(10.0, connect=5.0)
-                async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-                    response = await client.get(SOURCE_URLS[source_site], headers={"User-Agent": "CommerceCatalog/1.0"})
-                    if hasattr(response, "raise_for_status"):
-                        response.raise_for_status()
-                await asyncio.sleep(settings.SCRAPE_INTERVAL_SECONDS)
-                products = adapter.parse(response.text, SOURCE_URLS[source_site])
+                response_text = await self._request_source(source_site)
+                products = adapter.parse(response_text, SOURCE_URLS[source_site])
                 run.items_seen = len(products)
                 for dto in products:
                     self._upsert(source_site, dto)
