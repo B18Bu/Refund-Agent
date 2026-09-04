@@ -6,14 +6,14 @@ import json
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sse_starlette.sse import EventSourceResponse
 
 from app.config import settings
 from app.deps import get_current_user, get_db, require_role, require_roles
 from app.idempotency import resolve_idempotency
 from app.locks import acquire_approve_lock, release_approve_lock
-from app.models import Approval, Decision, Role, Ticket, TicketStatus
+from app.models import Approval, Decision, Role, Ticket, TicketStatus, User
 from app.commerce_models import ReturnRequest, Order, OrderItem
 from app.evaluation.models import AgentEvaluationRun
 from app.evaluation.schemas import serialize_evaluation
@@ -202,17 +202,18 @@ def list_tickets(user=Depends(get_current_user), db: Session = Depends(get_db)):
 
 
 @router.get("/service/returns")
-def list_manual_returns(
+def list_service_returns(
     _user=Depends(require_roles(Role.CS, Role.SV)),
     db: Session = Depends(get_db),
 ):
-    """客服/主管共用的人工退款队列，仅返回仍可审批的挂起工单。"""
+    """客服/主管共用的退单列表；仅挂起项目可执行人工审批。"""
     rows = (
-        db.query(ReturnRequest, Ticket, OrderItem)
+        db.query(ReturnRequest, Ticket, OrderItem, Order, User)
         .join(Ticket, ReturnRequest.ticket_id == Ticket.id)
         .join(OrderItem, ReturnRequest.order_item_id == OrderItem.id)
-        .filter(Ticket.status == TicketStatus.SUSPENDED)
-        .order_by(ReturnRequest.id.asc())
+        .join(Order, ReturnRequest.order_id == Order.id)
+        .join(User, ReturnRequest.user_id == User.id)
+        .order_by(ReturnRequest.id.desc())
         .all()
     )
     return [
@@ -221,16 +222,58 @@ def list_manual_returns(
             "ticket_id": ticket.id,
             "return_no": return_request.return_no,
             "order_id": return_request.order_id,
+            "order_no": order.order_no,
             "order_item_id": return_request.order_item_id,
+            "username": customer.username,
             "reason": return_request.reason,
             "description": return_request.description,
             "status": return_request.status.value,
+            "ticket_status": ticket.status.value,
+            "can_approve": ticket.status == TicketStatus.SUSPENDED,
             "amount": float(ticket.amount),
             "decision_reasons": ticket.decision_reasons or [],
             "evidence_paths": return_request.evidence_paths or [],
             "product_name": (item.product_snapshot_json or {}).get("name"),
+            "created_at": return_request.created_at.isoformat() if return_request.created_at else None,
         }
-        for return_request, ticket, item in rows
+        for return_request, ticket, item, order, customer in rows
+    ]
+
+
+@router.get("/service/orders")
+def list_service_orders(
+    _user=Depends(require_roles(Role.CS, Role.SV)),
+    db: Session = Depends(get_db),
+):
+    """客服/主管共用的用户订单只读列表。"""
+    rows = (
+        db.query(Order, User)
+        .join(User, Order.user_id == User.id)
+        .options(joinedload(Order.items))
+        .order_by(Order.id.desc())
+        .all()
+    )
+    return [
+        {
+            "id": order.id,
+            "order_no": order.order_no,
+            "username": customer.username,
+            "status": order.status.value,
+            "total_amount": float(order.total_amount),
+            "currency": order.currency,
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+            "items": [
+                {
+                    "id": item.id,
+                    "product_name": (item.product_snapshot_json or {}).get("name"),
+                    "quantity": item.quantity,
+                    "unit_price": float(item.unit_price),
+                    "status": item.status.value,
+                }
+                for item in order.items
+            ],
+        }
+        for order, customer in rows
     ]
 
 

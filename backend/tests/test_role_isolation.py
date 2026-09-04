@@ -90,6 +90,31 @@ def test_cs_and_sv_can_view_only_suspended_return_queue(client, db_session):
     assert client.get("/api/tickets/service/returns", headers=_headers(db_session, "queue-customer", Role.CUSTOMER)).status_code == 403
 
 
+def test_cs_and_sv_can_view_all_service_orders_and_return_statuses(client, db_session):
+    _pending_ticket, pending_return = _manual_return(db_session, "pending-return-customer")
+    processing_ticket, processing_return = _manual_return(db_session, "processing-return-customer")
+    processing_ticket.status = TicketStatus.RUNNING
+    processing_return.status = "PROCESSING"
+    db_session.commit()
+
+    for role in (Role.CS, Role.SV):
+        headers = _headers(db_session, f"service-orders-{role.value}", role)
+        orders = client.get("/api/tickets/service/orders", headers=headers)
+        returns = client.get("/api/tickets/service/returns", headers=headers)
+
+        assert orders.status_code == 200
+        assert any(row["id"] == pending_return.order_id for row in orders.json())
+        assert returns.status_code == 200
+        assert {row["return_no"] for row in returns.json()} >= {
+            pending_return.return_no,
+            processing_return.return_no,
+        }
+        assert {row["status"] for row in returns.json()} >= {"PENDING_REVIEW", "PROCESSING"}
+
+    customer_headers = _headers(db_session, "service-orders-customer", Role.CUSTOMER)
+    assert client.get("/api/tickets/service/orders", headers=customer_headers).status_code == 403
+
+
 def test_cs_and_sv_cannot_both_approve_same_return(client, db_session):
     ticket, _row = _manual_return(db_session, "approval-customer")
     cs_headers = _headers(db_session, "approval-cs", Role.CS)
