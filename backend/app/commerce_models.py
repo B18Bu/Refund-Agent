@@ -194,3 +194,13 @@ class ScrapeRun(Base):
     items_seen: Mapped[int] = mapped_column(Integer, default=0)
     items_upserted: Mapped[int] = mapped_column(Integer, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class CatalogState(Base):
+    """商品目录发布状态；仅完整校验通过的快照才会标记 READY。"""
+    __tablename__ = "catalog_state"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="NOT_READY")
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)

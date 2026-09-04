@@ -12,6 +12,7 @@ from app.deps import get_db, require_roles
 from app.models import Role, Ticket
 from app.redis_client import get_redis
 from app.idempotency import resolve_idempotency
+from app.catalog_initialization import catalog_is_ready
 
 router = APIRouter(prefix="/api/shop", tags=["shop"])
 
@@ -40,6 +41,8 @@ def list_products(
     max_price: float | None = Query(None, ge=0),
     db: Session = Depends(get_db),
 ):
+    if not catalog_is_ready(db):
+        raise HTTPException(503, detail={"code": "CATALOG_NOT_READY", "message": "商品目录尚未完成首次抓取"})
     query = db.query(Product).options(joinedload(Product.variants)).filter(Product.status == ProductStatus.ACTIVE)
     if keyword:
         term = f"%{keyword.strip()}%"
@@ -60,6 +63,8 @@ def list_products(
 
 @router.get("/products/{product_id}", response_model=ProductOut)
 def get_product(product_id: int, db: Session = Depends(get_db)):
+    if not catalog_is_ready(db):
+        raise HTTPException(503, detail={"code": "CATALOG_NOT_READY", "message": "商品目录尚未完成首次抓取"})
     product = (db.query(Product).options(joinedload(Product.variants))
                .filter(Product.id == product_id, Product.status == ProductStatus.ACTIVE).first())
     if product is None:
@@ -69,6 +74,8 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 @router.get("/brands", response_model=list[str])
 def list_brands(db: Session = Depends(get_db)):
+    if not catalog_is_ready(db):
+        raise HTTPException(503, detail={"code": "CATALOG_NOT_READY", "message": "商品目录尚未完成首次抓取"})
     rows = (db.query(Product.brand).filter(Product.status == ProductStatus.ACTIVE)
             .distinct().order_by(Product.brand).all())
     return [row[0] for row in rows]
