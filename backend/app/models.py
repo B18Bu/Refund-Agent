@@ -15,6 +15,7 @@ from app.db import Base
 
 
 class Role(str, enum.Enum):
+    CUSTOMER = "customer"  # 普通消费者
     CS = "cs"        # 客服 CUSTOMER_SERVICE
     SV = "sv"        # 主管 SUPERVISOR
 

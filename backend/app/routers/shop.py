@@ -8,8 +8,8 @@ from app.commerce_schemas import (AddressCreate, AddressOut, AddressUpdate, Cart
                                    SimulatePaymentRequest, ReturnCreate, ReturnOut)
 from app.commerce_service import (create_order, set_default_address, simulate_payment,
                                    create_return_request, map_ticket_to_return_status)
-from app.deps import get_current_user, get_db
-from app.models import Ticket
+from app.deps import get_db, require_roles
+from app.models import Role, Ticket
 from app.redis_client import get_redis
 from app.idempotency import resolve_idempotency
 
@@ -96,12 +96,12 @@ def _order_out(order: Order) -> dict:
 
 
 @router.get("/addresses", response_model=list[AddressOut])
-def list_addresses(user=Depends(get_current_user), db: Session = Depends(get_db)):
+def list_addresses(user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     return [_address_out(a) for a in db.query(Address).filter(Address.user_id == user.id).order_by(Address.id).all()]
 
 
 @router.post("/addresses", response_model=AddressOut, status_code=201)
-def add_address(body: AddressCreate, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def add_address(body: AddressCreate, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     has_existing = db.query(Address.id).filter(Address.user_id == user.id).first() is not None
     address = Address(user_id=user.id, **body.model_dump())
     if body.is_default or not has_existing:
@@ -114,7 +114,7 @@ def add_address(body: AddressCreate, user=Depends(get_current_user), db: Session
 
 
 @router.get("/addresses/{address_id}", response_model=AddressOut)
-def get_address(address_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def get_address(address_id: int, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     address = db.query(Address).filter(Address.id == address_id, Address.user_id == user.id).first()
     if address is None:
         raise HTTPException(404, "地址不存在")
@@ -122,7 +122,7 @@ def get_address(address_id: int, user=Depends(get_current_user), db: Session = D
 
 
 @router.put("/addresses/{address_id}", response_model=AddressOut)
-def update_address(address_id: int, body: AddressUpdate, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def update_address(address_id: int, body: AddressUpdate, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     address = db.query(Address).filter(Address.id == address_id, Address.user_id == user.id).first()
     if address is None:
         raise HTTPException(404, "地址不存在")
@@ -136,7 +136,7 @@ def update_address(address_id: int, body: AddressUpdate, user=Depends(get_curren
 
 
 @router.delete("/addresses/{address_id}", status_code=204)
-def delete_address(address_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_address(address_id: int, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     address = db.query(Address).filter(Address.id == address_id, Address.user_id == user.id).first()
     if address is None:
         raise HTTPException(404, "地址不存在")
@@ -151,7 +151,7 @@ def delete_address(address_id: int, user=Depends(get_current_user), db: Session 
 
 
 @router.get("/cart")
-def get_cart(user=Depends(get_current_user), db: Session = Depends(get_db)):
+def get_cart(user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     rows = db.query(CartItem).filter(CartItem.user_id == user.id).all()
     result = []
     for row in rows:
@@ -162,7 +162,7 @@ def get_cart(user=Depends(get_current_user), db: Session = Depends(get_db)):
 
 
 @router.put("/cart/items/{variant_id}")
-def upsert_cart_item(variant_id: int, body: CartItemUpsert, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def upsert_cart_item(variant_id: int, body: CartItemUpsert, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     variant = db.query(ProductVariant).options(joinedload(ProductVariant.product)).filter(ProductVariant.id == variant_id).first()
     if variant is None or not variant.available or variant.product.status != ProductStatus.ACTIVE:
         raise HTTPException(409, "商品规格不存在或不可售")
@@ -178,7 +178,7 @@ def upsert_cart_item(variant_id: int, body: CartItemUpsert, user=Depends(get_cur
 
 
 @router.delete("/cart/items/{variant_id}", status_code=204)
-def delete_cart_item(variant_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_cart_item(variant_id: int, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     item = db.query(CartItem).filter(CartItem.user_id == user.id, CartItem.variant_id == variant_id).first()
     if item is not None:
         db.delete(item)
@@ -186,7 +186,7 @@ def delete_cart_item(variant_id: int, user=Depends(get_current_user), db: Sessio
 
 
 @router.post("/orders", response_model=OrderOut, status_code=201)
-def add_order(body: OrderCreate, user=Depends(get_current_user), db: Session = Depends(get_db),
+def add_order(body: OrderCreate, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db),
               x_idempotency_key: str | None = Header(None)):
     if not x_idempotency_key or not x_idempotency_key.strip():
         raise HTTPException(400, "必须提供 X-Idempotency-Key")
@@ -199,7 +199,7 @@ def add_order(body: OrderCreate, user=Depends(get_current_user), db: Session = D
 
 @router.post("/orders/{order_id}/simulate-pay", response_model=OrderOut)
 def simulate_order_payment(order_id: int, body: SimulatePaymentRequest | None = None,
-                           user=Depends(get_current_user), db: Session = Depends(get_db)):
+                           user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     try:
         order = simulate_payment(db, user.id, order_id)
     except LookupError as exc:
@@ -210,13 +210,13 @@ def simulate_order_payment(order_id: int, body: SimulatePaymentRequest | None = 
 
 
 @router.get("/orders", response_model=list[OrderOut])
-def list_orders(user=Depends(get_current_user), db: Session = Depends(get_db)):
+def list_orders(user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     rows = db.query(Order).options(joinedload(Order.items)).filter(Order.user_id == user.id).order_by(Order.id.desc()).all()
     return [_order_out(row) for row in rows]
 
 
 @router.get("/orders/{order_id}", response_model=OrderOut)
-def get_order(order_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def get_order(order_id: int, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     order = db.query(Order).options(joinedload(Order.items)).filter(Order.id == order_id, Order.user_id == user.id).first()
     if order is None:
         raise HTTPException(404, "订单不存在")
@@ -239,7 +239,7 @@ def _return_out(row: ReturnRequest, db: Session) -> dict:
 
 @router.post("/orders/{order_id}/returns", response_model=ReturnOut, status_code=201)
 def create_order_return(order_id: int, body: ReturnCreate, response: Response,
-                        user=Depends(get_current_user), db: Session = Depends(get_db),
+                        user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db),
                         redis=Depends(get_redis), x_idempotency_key: str | None = Header(None)):
     if not x_idempotency_key or not x_idempotency_key.strip():
         raise HTTPException(400, "必须提供 X-Idempotency-Key")
@@ -291,13 +291,13 @@ def create_order_return(order_id: int, body: ReturnCreate, response: Response,
 
 
 @router.get("/returns", response_model=list[ReturnOut])
-def list_returns(user=Depends(get_current_user), db: Session = Depends(get_db)):
+def list_returns(user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     rows = db.query(ReturnRequest).filter(ReturnRequest.user_id == user.id).order_by(ReturnRequest.id.desc()).all()
     return [_return_out(row, db) for row in rows]
 
 
 @router.get("/returns/{return_id}", response_model=ReturnOut)
-def get_return(return_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def get_return(return_id: int, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     row = db.query(ReturnRequest).filter(ReturnRequest.id == return_id, ReturnRequest.user_id == user.id).first()
     if row is None:
         raise HTTPException(404, "退单不存在")

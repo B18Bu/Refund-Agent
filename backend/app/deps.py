@@ -41,3 +41,15 @@ def require_role(role: Role):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "无权限")
         return user
     return checker
+
+
+def require_roles(*roles: Role):
+    """限制依赖只能由指定角色访问。"""
+    allowed = set(roles)
+
+    def checker(user: User = Depends(get_current_user)) -> User:
+        if user.role not in allowed:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "无权限")
+        return user
+
+    return checker

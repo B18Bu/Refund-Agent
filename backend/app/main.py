@@ -32,6 +32,7 @@ def seed_users() -> None:
         ("sv1", Role.SV),
         ("customer_service_01", Role.CS),
         ("supervisor_01", Role.SV),
+        ("customer_01", Role.CUSTOMER),
     ]
     with SessionLocal() as db:
         for username, role in demo_users:
