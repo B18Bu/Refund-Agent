@@ -39,24 +39,24 @@ docker compose ps           # 五服务均 healthy
 
 ```bash
 # 1. 登录拿 token（演示账号见 README「演示账号」，密码统一 secret123）
-curl -s -X POST http://localhost:8000/api/auth/login \
+curl -s -X POST http://localhost:8001/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"supervisor_01","password":"secret123"}'
 
 # 2. 建单（携带幂等键；image_paths 为服务端已存凭证路径，可先上传后填）
-curl -s -X POST http://localhost:8000/api/tickets \
+curl -s -X POST http://localhost:8001/api/tickets \
   -H "Authorization: Bearer <token>" \
   -H "X-Idempotency-Key: $(uuidgen)" \
   -H 'Content-Type: application/json' \
   -d '{"amount":"350.00","image_paths":[]}'
 
 # 3. 上传凭证
-curl -s -X POST http://localhost:8000/api/tickets/<ticket_id>/files \
+curl -s -X POST http://localhost:8001/api/tickets/<ticket_id>/files \
   -H "Authorization: Bearer <token>" \
   -F "files=@invoice.jpg"
 
-# 4. 主管审批（路径为 /approve，同 <ticket_id> 的挂起工单）
-curl -s -X POST http://localhost:8000/api/tickets/<ticket_id>/approve \
+# 4. 主管审批（路径为 /approval，同 <ticket_id> 的挂起工单）
+curl -s -X POST http://localhost:8001/api/tickets/<ticket_id>/approval \
   -H "Authorization: Bearer <supervisor-token>" \
   -H 'Content-Type: application/json' \
   -d '{"action":"APPROVE","comment":"情况属实，批准退款"}'
@@ -67,7 +67,7 @@ curl -s -X POST http://localhost:8000/api/tickets/<ticket_id>/approve \
 ```bash
 # 压测对象为短时核心 API（登录/建单/列表/详情/审批入队），非云端 LLM 完整时长
 pip install locust
-locust -f locustfile.py --headless -u 200 -r 20 --run-time 60s --host http://localhost:8000
+locust -f locustfile.py --headless -u 200 -r 20 --run-time 60s --host http://localhost:8001
 ```
 
 验收基线：QPS ≥ 200、P95 < 300ms、错误率 < 0.1%；报告记录宿主机资源与原始输出，
@@ -78,3 +78,9 @@ locust -f locustfile.py --headless -u 200 -r 20 --run-time 60s --host http://loc
 - 低风险工单自动得到「自动退赔」结论。
 - 高风险/不确定工单 100% 进入人工审批，绝不错误自动放行。
 - 任一工单决策过程可完整追溯（环节轨迹、审批人、审批意见、失败原因）。
+# 电商演示入口
+
+- 游客访问 `/shop` 浏览商品；登录后可在侧栏进入购物车、订单和退单。
+- 支付为模拟支付：不会采集银行卡、支付密码或调用真实支付接口。
+- 应用内端到端验收：`.venv\\Scripts\\python.exe -m pytest backend/tests/test_commerce_e2e.py -q`
+- 已启动服务时可检查商品目录：`.venv\\Scripts\\python.exe scripts/commerce_e2e.py http://localhost:8001`

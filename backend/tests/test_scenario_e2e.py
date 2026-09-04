@@ -17,6 +17,12 @@ def test_build_multipart_body_contains_amount_and_file(tmp_path):
     assert b"D:/Claude Code" not in body
 
 
+def test_scenario_uses_current_approval_endpoint():
+    from scripts.scenario_e2e import APPROVAL_ENDPOINT
+
+    assert APPROVAL_ENDPOINT == "/approval"
+
+
 def test_ocr_client_reports_missing_image(monkeypatch):
     from app.agents import ocr
 

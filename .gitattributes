@@ -1,6 +1,7 @@
 # 工单原件和评测报告均为归档材料，禁止按文本执行差异空白检查。
 *.pdf binary
 docs/evidence/locust-report.html binary
+docs/evidence/locust-report.html linguist-generated=true
 
 # 数据库备份超过 GitHub 单文件限制，使用 Git LFS 保留完整内容。
 data/backup-refund-20260831.sql filter=lfs diff=lfs merge=lfs -text

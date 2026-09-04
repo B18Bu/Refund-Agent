@@ -216,3 +216,26 @@ def test_create_ticket_with_files_multipart(client, db_session, redis_client, tm
     # 已入队 START
     msgs = redis_client.xrange("stream:tickets")
     assert len(msgs) == 1
+
+
+def test_ticket_events_rejects_other_customer_ticket(db_session, redis_client):
+    """SSE 与详情接口一样，客服只能订阅自己的工单。"""
+    import asyncio
+    import pytest
+    from fastapi import HTTPException
+    from starlette.requests import Request
+    from app.models import Ticket, TicketStatus, Decision, Role, User
+    from app.routers.tickets import ticket_events
+
+    owner = User(username="events-owner", password_hash="hash", role=Role.CS)
+    intruder = User(username="events-intruder", password_hash="hash", role=Role.CS)
+    db_session.add_all([owner, intruder])
+    db_session.flush()
+    ticket = Ticket(ticket_no="events-private", user_id=owner.id, amount=1, image_paths=[],
+                    status=TicketStatus.RUNNING, decision=Decision.PENDING, thread_id="events-private")
+    db_session.add(ticket)
+    db_session.commit()
+    request = Request({"type": "http", "method": "GET", "path": f"/api/tickets/{ticket.id}/events", "headers": []})
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(ticket_events(ticket.id, request, intruder, redis_client, db_session))
+    assert exc.value.status_code == 404

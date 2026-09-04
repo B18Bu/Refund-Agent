@@ -44,7 +44,7 @@ class ApiUser(HttpUser):
             for ticket in resp.json():
                 if ticket.get("status") == "SUSPENDED":
                     with self.client.post(
-                        f"/api/tickets/{ticket['id']}/approve",
+                        f"/api/tickets/{ticket['id']}/approval",
                         json={"action": "APPROVE", "comment": "locust"},
                         headers=self.headers,
                         catch_response=True,
