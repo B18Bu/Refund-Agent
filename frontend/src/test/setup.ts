@@ -13,3 +13,6 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => false,
   }),
 })
+
+const getComputedStyleWithoutPseudo = window.getComputedStyle.bind(window)
+window.getComputedStyle = ((element: Element) => getComputedStyleWithoutPseudo(element)) as typeof window.getComputedStyle
