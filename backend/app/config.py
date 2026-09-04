@@ -81,7 +81,7 @@ class Settings(BaseSettings):
 
     # 商品抓取调度；来源仅允许代码内配置的品牌标识。
     SCRAPE_SCHEDULE: str = "0 3 * * *"
-    SCRAPE_ALLOWED_SOURCES: str = "vivo,oppo,generic"
+    SCRAPE_ALLOWED_SOURCES: str = "vivo,xiaomi,generic"
     SCRAPE_INTERVAL_SECONDS: float = 1.0
     CATALOG_REFRESH_SECONDS: float = 86400.0
 

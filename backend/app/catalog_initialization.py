@@ -12,7 +12,7 @@ from app.commerce_schemas import ProductDTO
 from app.scraping.service import ScrapeService
 
 
-CATALOG_SOURCES = ("vivo", "oppo")
+CATALOG_SOURCES = ("vivo", "xiaomi")
 
 
 class CatalogStatus(str, Enum):
@@ -29,7 +29,7 @@ class CatalogResult:
 
 
 def validate_catalog_snapshot(snapshot: dict[str, list[ProductDTO]]) -> CatalogResult:
-    required = {"vivo", "oppo"}
+    required = {"vivo", "xiaomi"}
     if not required.issubset(snapshot):
         return CatalogResult(CatalogStatus.INITIALIZATION_FAILED, "BRAND_NOT_MET")
     all_items = []

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from app.catalog_initialization import (
+    CATALOG_SOURCES,
     CatalogStatus,
     publish_successful_catalog,
     refresh_catalog,
@@ -27,8 +28,12 @@ def _snapshot(oppo_count: int = 20):
     oppo_prices = [199, 1599, 4999] + [1999] * (oppo_count - 3)
     return {
         "vivo": [_product("vivo", index, price) for index, price in enumerate(vivo_prices)],
-        "oppo": [_product("oppo", index, price) for index, price in enumerate(oppo_prices)],
+        "xiaomi": [_product("xiaomi", index, price) for index, price in enumerate(oppo_prices)],
     }
+
+
+def test_catalog_sources_are_vivo_and_xiaomi_only():
+    assert CATALOG_SOURCES == ("vivo", "xiaomi")
 
 
 def test_publish_requires_each_brand_twenty_skus_and_low_price(db_session):
@@ -39,7 +44,7 @@ def test_publish_requires_each_brand_twenty_skus_and_low_price(db_session):
 
 def test_snapshot_requires_low_price_sku_per_brand():
     snapshot = _snapshot()
-    snapshot["oppo"][0] = _product("oppo", 0, 301)
+    snapshot["xiaomi"][0] = _product("xiaomi", 0, 301)
     result = validate_catalog_snapshot(snapshot)
     assert result.status == CatalogStatus.INITIALIZATION_FAILED
     assert result.error_code == "LOW_PRICE_SKU_NOT_MET"

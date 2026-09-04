@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from app import models  # noqa: F401
 from app.commerce_schemas import ProductDTO
 from app.commerce_models import Product, ProductStatus, ScrapeRun, ScrapeRunStatus
-from app.scraping.adapters import VivoAdapter
+from app.scraping.adapters import VivoAdapter, XiaomiAdapter
 from app.scraping.service import ScrapeService
 
 
@@ -64,6 +64,19 @@ def test_vivo_adapter_parses_official_home_accessory_cards():
     assert rows[0].sku == "140725"
     assert rows[0].price == 199
     assert rows[0].name == "闪充套装"
+
+
+def test_xiaomi_adapter_parses_official_shop_cards():
+    rows = XiaomiAdapter().parse(
+        '<li><a href="https://www.mi.com/shop/buy?product_id=24037">'
+        '<img data-src="https://cdn.cnbj1.fds.api.mi-img.com/mi-mall/earbuds.png" />'
+        '<div class="title">小米耳机</div><p class="price">99元起</p></a></li>',
+        "https://www.mi.com/shop",
+    )
+
+    assert rows[0].brand == "xiaomi"
+    assert rows[0].sku == "24037"
+    assert rows[0].price == 99
 
 
 @pytest.mark.asyncio

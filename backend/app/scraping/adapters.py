@@ -1,11 +1,12 @@
 """固定品牌来源适配器；输入格式优先支持公开 JSON，避免页面结构耦合。"""
 import json
 import re
+from html import unescape
 from app.commerce_schemas import ProductDTO
 
 SOURCE_URLS = {
     "vivo": "https://shop.vivo.com.cn/api/v1/home/index",
-    "oppo": "https://www.oppo.com/cn/smartphones/",
+    "xiaomi": "https://www.mi.com/shop",
     "generic": "https://example.com/products",
 }
 SOURCE_CONFIG = SOURCE_URLS
@@ -93,9 +94,34 @@ class VivoAdapter(_JsonAdapter):
         return result
 
 
-class OppoAdapter(_JsonAdapter):
-    source_site = "oppo"
-    source_url = SOURCE_URLS["oppo"]
+class XiaomiAdapter(_JsonAdapter):
+    source_site = "xiaomi"
+    source_url = SOURCE_URLS["xiaomi"]
+
+    _CARD = re.compile(
+        r'<a\s+href="(?P<link>https://www\.mi\.com/shop/buy\?product_id=(?P<sku>\d+)[^"]*)"[^>]*>'
+        r'.*?(?:data-src|src)="(?P<image>https://[^"]+)".*?'
+        r'<div\s+class="title">\s*(?P<name>.*?)\s*</div>.*?'
+        r'<p\s+class="price">\s*(?P<price>[\d.]+)元起\s*</p>',
+        re.DOTALL,
+    )
+
+    def parse(self, response_text: str, source_url: str) -> list[ProductDTO]:
+        rows = []
+        for match in self._CARD.finditer(response_text):
+            rows.append(ProductDTO(
+                brand=self.source_site,
+                sku=match.group("sku"),
+                name=unescape(re.sub(r"<[^>]+>", "", match.group("name")).strip()),
+                price=match.group("price"),
+                source_url=self.source_url,
+                image_url=unescape(match.group("image")),
+                variant_name=unescape(re.sub(r"<[^>]+>", "", match.group("name")).strip()),
+                external_id=match.group("sku"),
+            ))
+        if not rows:
+            raise ValueError("无法解析小米商城商品数据")
+        return rows
 
 
 class GenericAdapter(_JsonAdapter):
@@ -103,9 +129,9 @@ class GenericAdapter(_JsonAdapter):
     source_url = SOURCE_URLS["generic"]
 
 
-ADAPTERS = {"vivo": VivoAdapter, "oppo": OppoAdapter, "generic": GenericAdapter}
+ADAPTERS = {"vivo": VivoAdapter, "xiaomi": XiaomiAdapter, "generic": GenericAdapter}
 
 # 兼容调用方使用的显式品牌适配器命名。
 VivoProductAdapter = VivoAdapter
-OppoProductAdapter = OppoAdapter
+XiaomiProductAdapter = XiaomiAdapter
 GenericProductAdapter = GenericAdapter
