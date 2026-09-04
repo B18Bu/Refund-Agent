@@ -1,10 +1,17 @@
+from unittest.mock import AsyncMock
+
+import pytest
+
 from app.catalog_initialization import (
     CatalogStatus,
     publish_successful_catalog,
     refresh_catalog,
+    run_catalog_initialization,
     validate_catalog_snapshot,
 )
+from app.commerce_models import Product
 from app.commerce_schemas import ProductDTO
+from app.scraping.service import ScrapeService
 
 
 def _product(brand: str, index: int, price: float) -> ProductDTO:
@@ -43,3 +50,18 @@ def test_failed_refresh_keeps_last_successful_catalog(db_session):
     assert published.status == CatalogStatus.READY
     assert result.used_cached_catalog is True
     assert result.status == CatalogStatus.READY
+
+
+@pytest.mark.asyncio
+async def test_first_run_with_one_failed_brand_publishes_no_products(db_session, monkeypatch):
+    monkeypatch.setattr(
+        ScrapeService,
+        "fetch_snapshot",
+        AsyncMock(side_effect=[_snapshot()["vivo"], RuntimeError("oppo down")]),
+    )
+
+    result = await run_catalog_initialization(db_session)
+
+    assert result.status == CatalogStatus.INITIALIZATION_FAILED
+    assert result.error_code == "SOURCE_FETCH_FAILED"
+    assert db_session.query(Product).count() == 0
