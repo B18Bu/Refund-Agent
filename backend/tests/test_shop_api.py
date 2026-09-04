@@ -44,6 +44,7 @@ def _user_headers(db_session, username="buyer"):
 
 
 def _seed_buyable(db_session):
+    db_session.add(CatalogState(id=1, status="READY"))
     product = Product(brand="vivo", name="X100", status=ProductStatus.ACTIVE)
     db_session.add(product)
     db_session.flush()
