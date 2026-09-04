@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     SCRAPE_SCHEDULE: str = "0 3 * * *"
     SCRAPE_ALLOWED_SOURCES: str = "vivo,oppo,generic"
     SCRAPE_INTERVAL_SECONDS: float = 1.0
+    CATALOG_REFRESH_SECONDS: float = 86400.0
 
     # ===== Telemetry（Langfuse 可选；上报失败不得阻塞业务主流程）=====
     TELEMETRY_ENABLED: bool = False

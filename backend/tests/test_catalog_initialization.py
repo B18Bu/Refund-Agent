@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -9,6 +9,7 @@ from app.catalog_initialization import (
     run_catalog_initialization,
     validate_catalog_snapshot,
 )
+from app.config import Settings
 from app.commerce_models import Product
 from app.commerce_schemas import ProductDTO
 from app.scraping.service import ScrapeService
@@ -65,3 +66,19 @@ async def test_first_run_with_one_failed_brand_publishes_no_products(db_session,
     assert result.status == CatalogStatus.INITIALIZATION_FAILED
     assert result.error_code == "SOURCE_FETCH_FAILED"
     assert db_session.query(Product).count() == 0
+
+
+def test_catalog_refresh_interval_defaults_to_daily():
+    assert Settings().CATALOG_REFRESH_SECONDS == 86400
+
+
+def test_catalog_worker_closes_session_after_single_initialization(monkeypatch):
+    from app.worker import catalog_consumer
+
+    db = Mock()
+    monkeypatch.setattr(catalog_consumer, "SessionLocal", lambda: db)
+    monkeypatch.setattr(catalog_consumer, "run_catalog_initialization", AsyncMock())
+
+    catalog_consumer.run_once()
+
+    db.close.assert_called_once()

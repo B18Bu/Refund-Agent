@@ -125,6 +125,22 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  catalog-worker:
+    build: ../../backend
+    command: python -m app.worker.catalog_consumer
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
+      REDIS_URL: redis://redis:6379/0
+      SCRAPE_ALLOWED_SOURCES: ${SCRAPE_ALLOWED_SOURCES:-vivo,oppo}
+      SCRAPE_INTERVAL_SECONDS: ${SCRAPE_INTERVAL_SECONDS:-1}
+      CATALOG_REFRESH_SECONDS: ${CATALOG_REFRESH_SECONDS:-86400}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   frontend:
     build: ../../frontend
     ports:
