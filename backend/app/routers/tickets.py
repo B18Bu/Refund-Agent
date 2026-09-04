@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
 from app.config import settings
-from app.deps import get_current_user, get_db, require_role
+from app.deps import get_current_user, get_db, require_role, require_roles
 from app.idempotency import resolve_idempotency
 from app.locks import acquire_approve_lock, release_approve_lock
 from app.models import Approval, Decision, Role, Ticket, TicketStatus
@@ -201,6 +201,39 @@ def list_tickets(user=Depends(get_current_user), db: Session = Depends(get_db)):
     ]
 
 
+@router.get("/service/returns")
+def list_manual_returns(
+    _user=Depends(require_roles(Role.CS, Role.SV)),
+    db: Session = Depends(get_db),
+):
+    """客服/主管共用的人工退款队列，仅返回仍可审批的挂起工单。"""
+    rows = (
+        db.query(ReturnRequest, Ticket, OrderItem)
+        .join(Ticket, ReturnRequest.ticket_id == Ticket.id)
+        .join(OrderItem, ReturnRequest.order_item_id == OrderItem.id)
+        .filter(Ticket.status == TicketStatus.SUSPENDED)
+        .order_by(ReturnRequest.id.asc())
+        .all()
+    )
+    return [
+        {
+            "id": return_request.id,
+            "ticket_id": ticket.id,
+            "return_no": return_request.return_no,
+            "order_id": return_request.order_id,
+            "order_item_id": return_request.order_item_id,
+            "reason": return_request.reason,
+            "description": return_request.description,
+            "status": return_request.status.value,
+            "amount": float(ticket.amount),
+            "decision_reasons": ticket.decision_reasons or [],
+            "evidence_paths": return_request.evidence_paths or [],
+            "product_name": (item.product_snapshot_json or {}).get("name"),
+        }
+        for return_request, ticket, item in rows
+    ]
+
+
 @router.get("/{ticket_id}")
 def get_ticket(
     ticket_id: int,
@@ -266,7 +299,7 @@ def get_ticket(
 def approve_ticket(
     ticket_id: int,
     body: ApproveRequest,
-    user=Depends(require_role(Role.SV)),
+    user=Depends(require_roles(Role.CS, Role.SV)),
     db: Session = Depends(get_db),
     redis=Depends(get_redis),
 ):
@@ -277,6 +310,8 @@ def approve_ticket(
         t = db.get(Ticket, ticket_id)
         if t is None:
             raise HTTPException(404, "工单不存在")
+        if user.role == Role.CS and db.query(ReturnRequest.id).filter(ReturnRequest.ticket_id == t.id).first() is None:
+            raise HTTPException(403, "客服仅可审批退款申请")
         if t.decision == Decision.FAILED:
             raise HTTPException(409, "工单已失败，无法审批")
         # 三方对齐最终防线：DB 条件更新（原子），仅当仍为 SUSPENDED 才允许审批，

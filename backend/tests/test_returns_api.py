@@ -28,6 +28,17 @@ def _paid_order(db_session, user):
     return order, item
 
 
+def _upload_return_evidence(client, headers):
+    image = b"\x89PNG\r\n\x1a\n" + b"test-pixel"
+    response = client.post(
+        "/api/shop/return-evidence",
+        files=[("files", ("proof.png", image, "image/png"))],
+        headers=headers,
+    )
+    assert response.status_code == 201
+    return response.json()["storage_keys"]
+
+
 def test_return_requires_paid_order_and_idempotency(client, db_session):
     headers, user = _headers(db_session)
     order, item = _paid_order(db_session, user)
@@ -65,15 +76,51 @@ def test_return_validation_failure_does_not_poison_idempotency_key(client, db_se
 def test_return_creates_one_ticket_and_is_idempotent(client, db_session):
     headers, user = _headers(db_session, "return-idem")
     order, item = _paid_order(db_session, user)
-    payload = {"order_item_id": item.id, "reason": "质量问题", "description": "屏幕异常", "evidence_paths": ["uploads/a.jpg"]}
+    payload = {"order_item_id": item.id, "reason": "质量问题", "description": "屏幕异常", "evidence_paths": _upload_return_evidence(client, headers)}
     first = client.post(f"/api/shop/orders/{order.id}/returns", json=payload, headers={**headers, "X-Idempotency-Key": "same"})
     assert first.status_code == 201
     second = client.post(f"/api/shop/orders/{order.id}/returns", json=payload, headers={**headers, "X-Idempotency-Key": "same"})
     assert second.status_code == 201 and second.json()["id"] == first.json()["id"]
     assert db_session.query(ReturnRequest).count() == 1
     ticket = db_session.query(Ticket).one()
-    assert ticket.image_paths == ["uploads/a.jpg"]
+    assert ticket.image_paths == payload["evidence_paths"]
     assert ticket.description == "屏幕异常"
+
+
+def test_return_without_evidence_is_forced_to_manual_review(client, db_session):
+    headers, user = _headers(db_session, "return-missing-evidence")
+    order, item = _paid_order(db_session, user)
+
+    response = client.post(
+        f"/api/shop/orders/{order.id}/returns",
+        json={"order_item_id": item.id, "reason": "商品质量问题"},
+        headers={**headers, "X-Idempotency-Key": "missing-evidence"},
+    )
+
+    assert response.status_code == 201
+    ticket = db_session.query(Ticket).one()
+    assert ticket.status == TicketStatus.SUSPENDED
+    assert ticket.decision == Decision.PENDING
+    assert ticket.decision_reasons == ["MISSING_RETURN_EVIDENCE"]
+
+
+def test_return_rejects_uncontrolled_local_filename_as_evidence(client, db_session):
+    headers, user = _headers(db_session, "return-uncontrolled-evidence")
+    order, item = _paid_order(db_session, user)
+
+    response = client.post(
+        f"/api/shop/orders/{order.id}/returns",
+        json={"order_item_id": item.id, "reason": "商品质量问题", "evidence_paths": ["photo.jpg"]},
+        headers={**headers, "X-Idempotency-Key": "uncontrolled-evidence"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_customer_can_upload_return_evidence_before_creating_return(client, db_session):
+    headers, _user = _headers(db_session, "return-upload")
+    storage_keys = _upload_return_evidence(client, headers)
+    assert storage_keys[0].startswith("uploads/")
 
 
 def test_return_status_mapping_is_deterministic():
@@ -124,9 +171,9 @@ def test_return_queue_failure_is_503_then_idempotently_reports_failed(client, db
     order, item = _paid_order(db_session, user)
     app.dependency_overrides[get_redis] = lambda: QueueFailureRedis()
     try:
-        first = client.post(f"/api/shop/orders/{order.id}/returns", json={"order_item_id": item.id, "reason": "质量问题"}, headers={**headers, "X-Idempotency-Key": "queue-failure-key"})
+        first = client.post(f"/api/shop/orders/{order.id}/returns", json={"order_item_id": item.id, "reason": "质量问题", "evidence_paths": _upload_return_evidence(client, headers)}, headers={**headers, "X-Idempotency-Key": "queue-failure-key"})
         assert first.status_code == 503
-        replay = client.post(f"/api/shop/orders/{order.id}/returns", json={"order_item_id": item.id, "reason": "质量问题"}, headers={**headers, "X-Idempotency-Key": "queue-failure-key"})
+        replay = client.post(f"/api/shop/orders/{order.id}/returns", json={"order_item_id": item.id, "reason": "质量问题", "evidence_paths": _upload_return_evidence(client, headers)}, headers={**headers, "X-Idempotency-Key": "queue-failure-key"})
         assert replay.status_code == 200
         assert replay.json()["status"] == "FAILED"
         assert db_session.query(ReturnRequest).count() == 1

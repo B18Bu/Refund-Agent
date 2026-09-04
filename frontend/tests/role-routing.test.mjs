@@ -46,10 +46,21 @@ test('客服后台菜单不暴露商城交易入口', () => {
 test('客服只能使用退款审核路由，其他后台页面由主管守卫', () => {
   const app = read('App.tsx')
 
-  assert.match(app, /path="\/service\/refunds" element={<Dashboard showScreen \/>}/)
+  assert.match(app, /path="\/service\/refunds" element={<ServiceRefunds \/>}/)
   assert.match(app, /path="\/workspace" element={<SupervisorOnly><Dashboard showScreen \/><\/SupervisorOnly>}/)
   assert.match(app, /path="\/my-tickets" element={<SupervisorOnly><MyTickets \/><\/SupervisorOnly>}/)
   assert.match(app, /path="\/process" element={<SupervisorOnly><ProcessOverview \/><\/SupervisorOnly>}/)
+})
+
+test('退款申请先上传受控凭证，客服使用专用退款队列', () => {
+  const orderDetail = read('pages/OrderDetail.tsx')
+  const serviceRefunds = read('pages/ServiceRefunds.tsx')
+
+  assert.match(orderDetail, /\/shop\/return-evidence/)
+  assert.match(orderDetail, /storage_keys/)
+  assert.doesNotMatch(orderDetail, /evidence_paths:\s*files\.map/)
+  assert.match(serviceRefunds, /\/tickets\/service\/returns/)
+  assert.match(serviceRefunds, /\/tickets\/\$\{.*\}\/approve/)
 })
 
 test('价格专区以分为边界连续覆盖全部可售商品', () => {

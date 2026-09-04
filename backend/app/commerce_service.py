@@ -140,15 +140,19 @@ def create_return_request(db: Session, user_id: int, order_id: int, order_item_i
     if item.status != OrderItemStatus.NORMAL:
         raise ValueError("该订单明细已申请退单")
     amount = Decimal(str(item.unit_price)) * item.quantity
+    missing_evidence = not evidence_paths
     ticket = Ticket(ticket_no=uuid.uuid4().hex, user_id=user_id, amount=amount,
                     image_paths=evidence_paths or [], description=description,
-                    status=TicketStatus.RUNNING,
-                    decision=Decision.PENDING, thread_id=uuid.uuid4().hex,
+                    status=TicketStatus.SUSPENDED if missing_evidence else TicketStatus.RUNNING,
+                    decision=Decision.PENDING,
+                    decision_reasons=["MISSING_RETURN_EVIDENCE"] if missing_evidence else None,
+                    thread_id=uuid.uuid4().hex,
                     idempotency_key=f"return:{idempotency_key}")
     rr = ReturnRequest(return_no=f"R{uuid.uuid4().hex.upper()}", order_id=order_id,
                        order_item_id=order_item_id, user_id=user_id, reason=reason.strip(),
                        description=description, evidence_paths=evidence_paths or [],
-                       status=ReturnStatus.SUBMITTED, idempotency_key=idempotency_key)
+                       status=ReturnStatus.PENDING_REVIEW if missing_evidence else ReturnStatus.SUBMITTED,
+                       idempotency_key=idempotency_key)
     db.add(ticket)
     db.add(rr)
     db.flush()
@@ -156,6 +160,9 @@ def create_return_request(db: Session, user_id: int, order_id: int, order_item_i
     item.status = OrderItemStatus.RETURN_REQUESTED
     order.status = OrderStatus.RETURNING
     db.commit()
+    if missing_evidence:
+        db.refresh(rr)
+        return rr
     try:
         redis.xadd(settings.STREAM_KEY, {"type": "START", "ticket_id": str(ticket.id), "thread_id": ticket.thread_id})
     except Exception as exc:

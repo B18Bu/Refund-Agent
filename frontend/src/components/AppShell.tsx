@@ -7,7 +7,6 @@ import {
   LineChartOutlined,
   MonitorOutlined,
   SafetyCertificateOutlined,
-  TeamOutlined,
   ReloadOutlined,
   LogoutOutlined,
 } from '@ant-design/icons'
@@ -21,8 +20,6 @@ type TicketRow = { status: string; outcome: string }
 
 const csItems = [
   { key: '/service/refunds', icon: <SafetyCertificateOutlined />, label: '退款审核' },
-  { key: '/my-tickets', icon: <TeamOutlined />, label: '我的申请' },
-  { key: '/process', icon: <FileTextOutlined />, label: '退款流程总览' },
 ]
 
 export default function AppShell() {

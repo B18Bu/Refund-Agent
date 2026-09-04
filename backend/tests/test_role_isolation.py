@@ -1,4 +1,5 @@
-from app.models import Role, User
+from app.commerce_models import Order, OrderItem, OrderStatus, Product, ProductVariant, ReturnRequest
+from app.models import Decision, Role, Ticket, TicketStatus, User
 from app.security import create_access_token
 from app.security import hash_password
 
@@ -54,3 +55,48 @@ def test_role_migration_adds_customer_enum_value():
     migration = Path(__file__).parents[1] / "migrations" / "20260904_add_customer_role.sql"
     sql = migration.read_text(encoding="utf-8").lower()
     assert "alter type role add value if not exists 'customer'" in sql
+
+
+def _manual_return(db_session, username="return-customer"):
+    customer = User(username=username, password_hash="unused", role=Role.CUSTOMER)
+    db_session.add(customer)
+    db_session.flush()
+    product = Product(brand="vivo", name="X100", status="ACTIVE")
+    db_session.add(product)
+    db_session.flush()
+    variant = ProductVariant(product_id=product.id, sku=f"sku-{customer.id}", variant_name="标准版", price=128, spec_json={})
+    db_session.add(variant)
+    db_session.flush()
+    order = Order(order_no=f"O-{customer.id}", user_id=customer.id, status=OrderStatus.RETURNING, address_snapshot_json={}, total_amount=128)
+    db_session.add(order)
+    db_session.flush()
+    item = OrderItem(order_id=order.id, product_id=product.id, variant_id=variant.id, product_snapshot_json={"name": "X100"}, quantity=1, unit_price=128, status="RETURN_REQUESTED")
+    ticket = Ticket(ticket_no=f"T-{customer.id}", user_id=customer.id, amount=128, image_paths=["uploads/proof.png"], status=TicketStatus.SUSPENDED, decision=Decision.PENDING, thread_id=f"thread-{customer.id}")
+    db_session.add_all([item, ticket])
+    db_session.flush()
+    row = ReturnRequest(return_no=f"R-{customer.id}", order_id=order.id, order_item_id=item.id, user_id=customer.id, reason="质量问题", evidence_paths=["uploads/proof.png"], ticket_id=ticket.id, status="PENDING_REVIEW", idempotency_key=f"return-{customer.id}")
+    db_session.add(row)
+    db_session.commit()
+    return ticket, row
+
+
+def test_cs_and_sv_can_view_only_suspended_return_queue(client, db_session):
+    _ticket, row = _manual_return(db_session)
+    for role in (Role.CS, Role.SV):
+        response = client.get("/api/tickets/service/returns", headers=_headers(db_session, f"queue-{role.value}", role))
+        assert response.status_code == 200
+        assert response.json()[0]["return_no"] == row.return_no
+        assert response.json()[0]["evidence_paths"] == ["uploads/proof.png"]
+    assert client.get("/api/tickets/service/returns", headers=_headers(db_session, "queue-customer", Role.CUSTOMER)).status_code == 403
+
+
+def test_cs_and_sv_cannot_both_approve_same_return(client, db_session):
+    ticket, _row = _manual_return(db_session, "approval-customer")
+    cs_headers = _headers(db_session, "approval-cs", Role.CS)
+    sv_headers = _headers(db_session, "approval-sv", Role.SV)
+
+    first = client.post(f"/api/tickets/{ticket.id}/approve", json={"action": "APPROVE", "comment": "已核验"}, headers=cs_headers)
+    second = client.post(f"/api/tickets/{ticket.id}/approve", json={"action": "APPROVE", "comment": "重复审批"}, headers=sv_headers)
+
+    assert first.status_code == 200
+    assert second.status_code == 409

@@ -8,7 +8,7 @@ import MyTickets from './pages/MyTickets'
 import ProcessOverview from './pages/ProcessOverview'
 import Evaluations from './pages/Evaluations'
 import SecurityGovernance from './pages/SecurityGovernance'
-import AppShell from './components/AppShell'
+import BackofficeShell from './components/BackofficeShell'
 import CustomerShell from './components/CustomerShell'
 import { getSessionUser } from './types/auth'
 import ShopHome from './pages/ShopHome'
@@ -18,6 +18,7 @@ import Checkout from './pages/Checkout'
 import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import Returns from './pages/Returns'
+import ServiceRefunds from './pages/ServiceRefunds'
 
 function RequireSession() {
   return getSessionUser() ? <Outlet /> : <Navigate to="/login" replace />
@@ -51,7 +52,7 @@ export default function App() {
             <Route path="/shop/orders/:id" element={<OrderDetail />} />
             <Route path="/shop/returns" element={<Returns />} />
           </Route>
-          <Route element={<StaffOnly><AppShell /></StaffOnly>}>
+          <Route element={<StaffOnly><BackofficeShell /></StaffOnly>}>
             <Route path="/" element={<RoleHome />} />
             <Route path="/workspace" element={<SupervisorOnly><Dashboard showScreen /></SupervisorOnly>} />
             <Route path="/my-tickets" element={<SupervisorOnly><MyTickets /></SupervisorOnly>} />
@@ -62,7 +63,7 @@ export default function App() {
             <Route path="/screen" element={<SupervisorOnly><Screen /></SupervisorOnly>} />
             <Route path="/evaluations" element={<SupervisorOnly><Evaluations /></SupervisorOnly>} />
             <Route path="/security-governance" element={<SupervisorOnly><SecurityGovernance /></SupervisorOnly>} />
-            <Route path="/service/refunds" element={<Dashboard showScreen />} />
+            <Route path="/service/refunds" element={<ServiceRefunds />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

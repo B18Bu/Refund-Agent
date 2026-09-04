@@ -57,7 +57,7 @@ async def save_upload(ufile: UploadFile) -> dict:
         raise HTTPException(415, f"不支持的媒体类型: {content_type}")
 
     ext = ".png" if mime_by_header == "image/png" else ".jpg"
-    storage_key = os.path.join("uploads", f"{uuid.uuid4().hex}{ext}")
+    storage_key = f"uploads/{uuid.uuid4().hex}{ext}"
 
     upload_dir = settings.UPLOAD_DIR
     os.makedirs(upload_dir, exist_ok=True)

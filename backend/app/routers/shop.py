@@ -1,5 +1,6 @@
 """用户端商品目录只读接口。"""
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
+import os
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Response, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from app.commerce_models import Address, CartItem, Order, OrderItem, Product, ProductStatus, ProductVariant, ReturnRequest
@@ -13,6 +14,7 @@ from app.models import Role, Ticket
 from app.redis_client import get_redis
 from app.idempotency import resolve_idempotency
 from app.catalog_initialization import catalog_is_ready
+from app.storage import resolve_abs_path, save_upload
 
 router = APIRouter(prefix="/api/shop", tags=["shop"])
 
@@ -244,6 +246,29 @@ def _return_out(row: ReturnRequest, db: Session) -> dict:
             "error_code": row.error_code}
 
 
+def _validate_controlled_evidence_paths(evidence_paths: list[str]) -> None:
+    """仅接受已由本服务保存且仍存在的凭证键，拒绝客户端文件名。"""
+    for storage_key in evidence_paths:
+        if not storage_key.startswith("uploads/") or not storage_key.lower().endswith((".jpg", ".jpeg", ".png")):
+            raise HTTPException(422, "凭证必须先通过上传接口保存")
+        if not os.path.isfile(resolve_abs_path(storage_key)):
+            raise HTTPException(422, "凭证不存在或不可用")
+
+
+@router.post("/return-evidence", status_code=201)
+async def upload_return_evidence(
+    files: list[UploadFile] = File(...),
+    _user=Depends(require_roles(Role.CUSTOMER)),
+):
+    """先持久化受控凭证，再允许客户创建退款，避免 Worker 读取到本地文件名。"""
+    if not files:
+        raise HTTPException(400, "至少上传一张凭证图片")
+    if len(files) > 3:
+        raise HTTPException(413, "最多上传 3 张图片")
+    storage_keys = [(await save_upload(upload))["storage_key"] for upload in files]
+    return {"storage_keys": storage_keys}
+
+
 @router.post("/orders/{order_id}/returns", response_model=ReturnOut, status_code=201)
 def create_order_return(order_id: int, body: ReturnCreate, response: Response,
                         user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db),
@@ -261,6 +286,10 @@ def create_order_return(order_id: int, body: ReturnCreate, response: Response,
         if existing_db.status.value == "FAILED":
             response.status_code = 200
         return _return_out(existing_db, db)
+
+    if not body.reason.strip():
+        raise HTTPException(422, "必须填写退款原因")
+    _validate_controlled_evidence_paths(body.evidence_paths)
 
     # 先做确定性业务校验，再占用 Redis 幂等键；否则校验失败会留下“幽灵”键，
     # 后续使用同一幂等键的合法请求将被错误地判定为处理中。
