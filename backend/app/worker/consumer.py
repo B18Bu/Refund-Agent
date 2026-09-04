@@ -21,6 +21,8 @@ from app.config import settings
 from app.db import SessionLocal
 from app.evaluation.repository import record_evaluation, should_record_evaluation
 from app.models import AgentTrace, Decision, Ticket, TicketStatus
+from app.commerce_models import ReturnRequest
+from app.commerce_service import map_ticket_to_return_status
 from app.observability.langfuse import emit_refund_trace
 from app.redis_client import get_redis
 from app.security.gateway import DLP
@@ -39,6 +41,9 @@ def update_ticket(thread_id: str, **fields) -> None:
         if t:
             for k, v in fields.items():
                 setattr(t, k, v)
+            return_request = db.query(ReturnRequest).filter(ReturnRequest.ticket_id == t.id).first()
+            if return_request is not None:
+                return_request.status = map_ticket_to_return_status(t.status, t.decision)
             db.commit()
 
 
@@ -59,6 +64,11 @@ def mark_failed(ticket_id: int, error_code: str, error_message: str) -> None:
         t.error_code = error_code
         t.error_message = error_message[:2000]
         t.completed_at = datetime.now(timezone.utc)
+        return_request = db.query(ReturnRequest).filter(ReturnRequest.ticket_id == t.id).first()
+        if return_request is not None:
+            return_request.status = map_ticket_to_return_status(t.status, t.decision)
+            return_request.error_code = error_code
+            return_request.error_message = error_message[:2000]
         db.commit()
         trace_failed(db, t.id, "Worker", error_code, error_message)
 

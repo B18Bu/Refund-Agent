@@ -50,6 +50,8 @@ class Ticket(Base):
     trace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     amount: Mapped[float] = mapped_column(Numeric(12, 2))
     image_paths: Mapped[list] = mapped_column(JSON, default=list)
+    # 用户退单补充说明；与 OCR 结果分离，避免 Worker 覆盖业务原文。
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     ocr_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     ocr_confidence: Mapped[float | None] = mapped_column(Numeric(5, 4), nullable=True)
     fraud_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -104,3 +106,19 @@ class AgentTrace(Base):
 
 # 独立模型仍需在应用启动时注册到 SQLAlchemy metadata；生产建表只执行显式迁移。
 from app.evaluation.models import AgentEvaluationRun  # noqa: E402,F401
+from app.commerce_models import (  # noqa: E402,F401
+    Address,
+    CartItem,
+    Order,
+    OrderItem,
+    OrderItemStatus,
+    OrderStatus,
+    Product,
+    ProductSource,
+    ProductStatus,
+    ProductVariant,
+    ReturnRequest,
+    ReturnStatus,
+    ScrapeRun,
+    ScrapeRunStatus,
+)

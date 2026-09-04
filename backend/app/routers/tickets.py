@@ -179,6 +179,7 @@ def list_tickets(user=Depends(get_current_user), db: Session = Depends(get_db)):
             "id": t.id,
             "ticket_no": t.ticket_no,
             "amount": float(t.amount),
+            "description": t.description,
             "trace_id": t.trace_id,
             "status": t.status.value,
             "status_text": status_text(t.status.value),
@@ -225,6 +226,7 @@ def get_ticket(
         "id": t.id,
         "ticket_no": t.ticket_no,
         "amount": float(t.amount),
+        "description": t.description,
         "trace_id": t.trace_id,
         "ocr_text": t.ocr_text,
         "ocr_confidence": float(t.ocr_confidence) if t.ocr_confidence is not None else None,
@@ -310,8 +312,12 @@ async def ticket_events(
     request: Request,
     user=Depends(get_current_user),
     redis=Depends(get_redis),
+    db: Session = Depends(get_db),
 ):
     """SSE 事件流：推送工单状态/轨迹变更事件，前端收到后调详情接口取完整数据。"""
+    ticket = db.get(Ticket, ticket_id)
+    if ticket is None or (user.role != Role.SV and ticket.user_id != user.id):
+        raise HTTPException(404, "工单不存在")
     channel = f"{settings.EVENT_CHANNEL_PREFIX}:{ticket_id}"
     pubsub = redis.pubsub()
     pubsub.subscribe(channel)
