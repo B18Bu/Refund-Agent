@@ -4,7 +4,7 @@ import re
 from app.commerce_schemas import ProductDTO
 
 SOURCE_URLS = {
-    "vivo": "https://shop.vivo.com.cn/api/v1/prodList/phone?pageNum=1&pageSize=100",
+    "vivo": "https://shop.vivo.com.cn/api/v1/home/index",
     "oppo": "https://www.oppo.com/cn/smartphones/",
     "generic": "https://example.com/products",
 }
@@ -47,6 +47,29 @@ class VivoAdapter(_JsonAdapter):
 
     def parse(self, response_text: str, source_url: str) -> list[ProductDTO]:
         payload = json.loads(response_text)
+        navigation = payload.get("data", {}).get("navigateVos") if isinstance(payload, dict) else None
+        if isinstance(navigation, list):
+            result = []
+            for category in navigation:
+                if not isinstance(category, dict):
+                    continue
+                for row in category.get("commoditySpus") or []:
+                    if not isinstance(row, dict):
+                        continue
+                    image_url = row.get("imgUrl")
+                    result.append(ProductDTO(
+                        brand=self.source_site,
+                        sku=str(row["skuId"]),
+                        name=row["name"],
+                        price=row["price"],
+                        source_url=self.source_url,
+                        description=row.get("brief"),
+                        image_url=image_url if isinstance(image_url, str) and image_url.startswith("https://") else None,
+                        variant_name=row["name"],
+                        external_id=str(row.get("spuId") or row["skuId"]),
+                    ))
+            if result:
+                return result
         rows = payload.get("data", {}).get("dataList") if isinstance(payload, dict) else None
         if not isinstance(rows, list):
             return super().parse(response_text, source_url)

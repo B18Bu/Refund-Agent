@@ -36,7 +36,7 @@ def test_vivo_adapter_parses_standard_json():
     )
     assert rows[0].brand == "vivo"
     assert rows[0].sku == "x100"
-    assert str(rows[0].source_url) == "https://shop.vivo.com.cn/api/v1/prodList/phone?pageNum=1&pageSize=100"
+    assert str(rows[0].source_url) == "https://shop.vivo.com.cn/api/v1/home/index"
 
 
 def test_vivo_adapter_parses_official_product_list_payload():
@@ -44,12 +44,26 @@ def test_vivo_adapter_parses_official_product_list_payload():
         '{"code":0,"data":{"dataList":[{"id":242665,"skuCode":"1234567",'
         '"skuName":"vivo Y6k 6GB+128GB","salePrice":1599,"brief":"大电池",'
         '"images":[{"smallPic":"https://shopstatic.vivo.com.cn/y6k.png"}]}]}}',
-        "https://shop.vivo.com.cn/api/v1/prodList/phone?pageNum=1&pageSize=100",
+        "https://shop.vivo.com.cn/api/v1/home/index",
     )
 
     assert rows[0].sku == "1234567"
     assert rows[0].price == 1599
     assert rows[0].image_url == "https://shopstatic.vivo.com.cn/y6k.png"
+
+
+def test_vivo_adapter_parses_official_home_accessory_cards():
+    rows = VivoAdapter().parse(
+        '{"data":{"navigateVos":[{"firstCategory":{"name":"手机充电"},"commoditySpus":['
+        '{"spuId":10011368,"skuId":140725,"name":"闪充套装","price":"199",'
+        '"brief":"数据线","imgUrl":"https://shopstatic.vivo.com.cn/charger.png",'
+        '"link":"https://shop.vivo.com.cn/product/10011368?skuId=140725"}]}]}}',
+        "https://shop.vivo.com.cn/api/v1/home/index",
+    )
+
+    assert rows[0].sku == "140725"
+    assert rows[0].price == 199
+    assert rows[0].name == "闪充套装"
 
 
 @pytest.mark.asyncio
