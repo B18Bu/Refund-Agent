@@ -79,6 +79,35 @@ def test_xiaomi_adapter_parses_official_shop_cards():
     assert rows[0].price == 99
 
 
+def test_xiaomi_source_uses_official_accessory_search_page():
+    assert XiaomiAdapter.source_url == "https://www.mi.com/shop/search?keyword=%E8%80%B3%E6%9C%BA"
+
+
+def test_xiaomi_adapter_does_not_combine_fields_from_multiple_cards():
+    rows = XiaomiAdapter().parse(
+        '<li><a href="https://www.mi.com/shop/buy?product_id=1">'
+        '<img data-src="https://cdn.cnbj1.fds.api.mi-img.com/mi-mall/nav.png" />'
+        '<div class="title">无价格导航</div></a></li>'
+        '<li><a href="https://www.mi.com/shop/buy?product_id=2">'
+        '<img data-src="https://cdn.cnbj1.fds.api.mi-img.com/mi-mall/earbuds.png" />'
+        '<div class="title">小米耳机</div><p class="price">99元起</p></a></li>',
+        "https://www.mi.com/shop",
+    )
+
+    assert [row.sku for row in rows] == ["2"]
+
+
+def test_xiaomi_adapter_parses_official_search_price_without_suffix():
+    rows = XiaomiAdapter().parse(
+        '<li><a href="https://www.mi.com/shop/buy?product_id=3">'
+        '<img data-src="https://cdn.cnbj1.fds.api.mi-img.com/mi-mall/cable.png" />'
+        '<div class="title">小米数据线</div><p class="price">159元</p></a></li>',
+        "https://www.mi.com/shop",
+    )
+
+    assert rows[0].price == 159
+
+
 @pytest.mark.asyncio
 async def test_scrape_failure_keeps_active_cache(db_session, monkeypatch):
     old = Product(brand="vivo", name="X100", status=ProductStatus.ACTIVE)

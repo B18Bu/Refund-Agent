@@ -6,7 +6,7 @@ from app.commerce_schemas import ProductDTO
 
 SOURCE_URLS = {
     "vivo": "https://shop.vivo.com.cn/api/v1/home/index",
-    "xiaomi": "https://www.mi.com/shop",
+    "xiaomi": "https://www.mi.com/shop/search?keyword=%E8%80%B3%E6%9C%BA",
     "generic": "https://example.com/products",
 }
 SOURCE_CONFIG = SOURCE_URLS
@@ -98,26 +98,31 @@ class XiaomiAdapter(_JsonAdapter):
     source_site = "xiaomi"
     source_url = SOURCE_URLS["xiaomi"]
 
-    _CARD = re.compile(
-        r'<a\s+href="(?P<link>https://www\.mi\.com/shop/buy\?product_id=(?P<sku>\d+)[^"]*)"[^>]*>'
-        r'.*?(?:data-src|src)="(?P<image>https://[^"]+)".*?'
-        r'<div\s+class="title">\s*(?P<name>.*?)\s*</div>.*?'
-        r'<p\s+class="price">\s*(?P<price>[\d.]+)元起\s*</p>',
-        re.DOTALL,
-    )
+    _CARD = re.compile(r"<li\b[^>]*>(?P<card>.*?)</li>", re.DOTALL)
+    _PRODUCT = re.compile(r'https://www\.mi\.com/shop/buy\?product_id=(?P<sku>\d+)')
+    _IMAGE = re.compile(r'(?:data-src|src)="(?P<image>https://[^"]+)"')
+    _TITLE = re.compile(r'<div\s+class="title">\s*(?P<name>.*?)\s*</div>', re.DOTALL)
+    _PRICE = re.compile(r'<p\s+class="price">\s*(?P<price>[\d.]+)元(?:起)?\s*</p>')
 
     def parse(self, response_text: str, source_url: str) -> list[ProductDTO]:
         rows = []
-        for match in self._CARD.finditer(response_text):
+        for card_match in self._CARD.finditer(response_text):
+            card = card_match.group("card")
+            product = self._PRODUCT.search(card)
+            image = self._IMAGE.search(card)
+            title = self._TITLE.search(card)
+            price = self._PRICE.search(card)
+            if not all((product, image, title, price)):
+                continue
             rows.append(ProductDTO(
                 brand=self.source_site,
-                sku=match.group("sku"),
-                name=unescape(re.sub(r"<[^>]+>", "", match.group("name")).strip()),
-                price=match.group("price"),
+                sku=product.group("sku"),
+                name=unescape(re.sub(r"<[^>]+>", "", title.group("name")).strip()),
+                price=price.group("price"),
                 source_url=self.source_url,
-                image_url=unescape(match.group("image")),
-                variant_name=unescape(re.sub(r"<[^>]+>", "", match.group("name")).strip()),
-                external_id=match.group("sku"),
+                image_url=unescape(image.group("image")),
+                variant_name=unescape(re.sub(r"<[^>]+>", "", title.group("name")).strip()),
+                external_id=product.group("sku"),
             ))
         if not rows:
             raise ValueError("无法解析小米商城商品数据")
