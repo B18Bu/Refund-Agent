@@ -14,6 +14,7 @@ from app.deps import get_current_user, get_db, require_role
 from app.idempotency import resolve_idempotency
 from app.locks import acquire_approve_lock, release_approve_lock
 from app.models import Approval, Decision, Role, Ticket, TicketStatus
+from app.commerce_models import ReturnRequest, Order, OrderItem
 from app.evaluation.models import AgentEvaluationRun
 from app.evaluation.schemas import serialize_evaluation
 from app.redis_client import get_redis
@@ -222,11 +223,24 @@ def get_ticket(
         }
         for tr in sorted(t.traces, key=lambda x: x.sequence_no)
     ]
+    return_request = db.query(ReturnRequest).filter(ReturnRequest.ticket_id == t.id).first()
+    commerce_context = None
+    if return_request is not None:
+        order = db.get(Order, return_request.order_id)
+        item = db.get(OrderItem, return_request.order_item_id)
+        snapshot = item.product_snapshot_json if item is not None else {}
+        commerce_context = {
+            "order_no": order.order_no if order else None,
+            "return_no": return_request.return_no,
+            "product_name": snapshot.get("name"),
+            "return_reason": return_request.reason,
+        }
     return {
         "id": t.id,
         "ticket_no": t.ticket_no,
         "amount": float(t.amount),
         "description": t.description,
+        "commerce_context": commerce_context,
         "trace_id": t.trace_id,
         "ocr_text": t.ocr_text,
         "ocr_confidence": float(t.ocr_confidence) if t.ocr_confidence is not None else None,

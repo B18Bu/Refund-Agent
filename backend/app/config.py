@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     # ===== 事件推送 =====
     EVENT_CHANNEL_PREFIX: str = "events:ticket"
 
+    # 商品抓取调度；来源仅允许代码内配置的品牌标识。
+    SCRAPE_SCHEDULE: str = "0 3 * * *"
+    SCRAPE_ALLOWED_SOURCES: str = "vivo,oppo,generic"
+    SCRAPE_INTERVAL_SECONDS: float = 1.0
+
     # ===== Telemetry（Langfuse 可选；上报失败不得阻塞业务主流程）=====
     TELEMETRY_ENABLED: bool = False
     TELEMETRY_PROVIDER: str = "noop"   # noop | langfuse
