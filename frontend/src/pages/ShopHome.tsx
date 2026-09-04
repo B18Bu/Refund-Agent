@@ -7,8 +7,8 @@ import type { Product } from '../types/shop'
 const priceBands = [
   { key: 'all', label: '全部商品' },
   { key: 'low', label: '300 元以下', max_price: 300 },
-  { key: 'mid', label: '301 - 3000 元', min_price: 301, max_price: 3000 },
-  { key: 'high', label: '3000 元以上', min_price: 3001 },
+  { key: 'mid', label: '300.01 - 3000 元', min_price: 300.01, max_price: 3000 },
+  { key: 'high', label: '3000.01 元以上', min_price: 3000.01 },
 ] as const
 
 const lowestPrice = (product: Product) => Math.min(...product.variants.filter((item) => item.available).map((item) => item.price))

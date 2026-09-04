@@ -29,7 +29,7 @@ function RoleHome() {
 }
 
 function SupervisorOnly({ children }: { children: React.ReactElement }) {
-  return getSessionUser()?.role === 'sv' ? children : <Navigate to="/" replace />
+  return getSessionUser()?.role === 'sv' ? children : <Navigate to="/service/refunds" replace />
 }
 
 function StaffOnly({ children }: { children: React.ReactElement }) {
@@ -53,12 +53,12 @@ export default function App() {
           </Route>
           <Route element={<StaffOnly><AppShell /></StaffOnly>}>
             <Route path="/" element={<RoleHome />} />
-            <Route path="/workspace" element={<Dashboard showScreen />} />
-            <Route path="/my-tickets" element={<MyTickets />} />
+            <Route path="/workspace" element={<SupervisorOnly><Dashboard showScreen /></SupervisorOnly>} />
+            <Route path="/my-tickets" element={<SupervisorOnly><MyTickets /></SupervisorOnly>} />
             <Route path="/monitor" element={<SupervisorOnly><Monitor /></SupervisorOnly>} />
             <Route path="/approvals" element={<SupervisorOnly><Monitor /></SupervisorOnly>} />
-            <Route path="/process" element={<ProcessOverview />} />
-            <Route path="/ticket/:id" element={<TicketDetail />} />
+            <Route path="/process" element={<SupervisorOnly><ProcessOverview /></SupervisorOnly>} />
+            <Route path="/ticket/:id" element={<SupervisorOnly><TicketDetail /></SupervisorOnly>} />
             <Route path="/screen" element={<SupervisorOnly><Screen /></SupervisorOnly>} />
             <Route path="/evaluations" element={<SupervisorOnly><Evaluations /></SupervisorOnly>} />
             <Route path="/security-governance" element={<SupervisorOnly><SecurityGovernance /></SupervisorOnly>} />

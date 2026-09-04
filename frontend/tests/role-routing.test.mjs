@@ -42,3 +42,20 @@ test('客服后台菜单不暴露商城交易入口', () => {
   assert.match(csItems, /\/service\/refunds/)
   assert.doesNotMatch(csItems, /\/shop/)
 })
+
+test('客服只能使用退款审核路由，其他后台页面由主管守卫', () => {
+  const app = read('App.tsx')
+
+  assert.match(app, /path="\/service\/refunds" element={<Dashboard showScreen \/>}/)
+  assert.match(app, /path="\/workspace" element={<SupervisorOnly><Dashboard showScreen \/><\/SupervisorOnly>}/)
+  assert.match(app, /path="\/my-tickets" element={<SupervisorOnly><MyTickets \/><\/SupervisorOnly>}/)
+  assert.match(app, /path="\/process" element={<SupervisorOnly><ProcessOverview \/><\/SupervisorOnly>}/)
+})
+
+test('价格专区以分为边界连续覆盖全部可售商品', () => {
+  const home = read('pages/ShopHome.tsx')
+
+  assert.match(home, /max_price: 300/)
+  assert.match(home, /min_price: 300\.01, max_price: 3000/)
+  assert.match(home, /min_price: 3000\.01/)
+})
