@@ -4,7 +4,7 @@ import re
 from app.commerce_schemas import ProductDTO
 
 SOURCE_URLS = {
-    "vivo": "https://www.vivo.com.cn/products",
+    "vivo": "https://shop.vivo.com.cn/api/v1/prodList/phone?pageNum=1&pageSize=100",
     "oppo": "https://www.oppo.com/cn/smartphones/",
     "generic": "https://example.com/products",
 }
@@ -44,6 +44,30 @@ class _JsonAdapter:
 class VivoAdapter(_JsonAdapter):
     source_site = "vivo"
     source_url = SOURCE_URLS["vivo"]
+
+    def parse(self, response_text: str, source_url: str) -> list[ProductDTO]:
+        payload = json.loads(response_text)
+        rows = payload.get("data", {}).get("dataList") if isinstance(payload, dict) else None
+        if not isinstance(rows, list):
+            return super().parse(response_text, source_url)
+        result = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            images = row.get("images") or []
+            image_url = images[0].get("smallPic") if images and isinstance(images[0], dict) else None
+            result.append(ProductDTO(
+                brand=self.source_site,
+                sku=str(row["skuCode"]),
+                name=row["skuName"],
+                price=row["salePrice"],
+                source_url=self.source_url,
+                description=row.get("brief"),
+                image_url=image_url if isinstance(image_url, str) and image_url.startswith("https://") else None,
+                variant_name=row["skuName"],
+                external_id=str(row.get("id") or row["skuCode"]),
+            ))
+        return result
 
 
 class OppoAdapter(_JsonAdapter):

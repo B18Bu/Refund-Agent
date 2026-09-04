@@ -36,7 +36,20 @@ def test_vivo_adapter_parses_standard_json():
     )
     assert rows[0].brand == "vivo"
     assert rows[0].sku == "x100"
-    assert str(rows[0].source_url) == "https://www.vivo.com.cn/products"
+    assert str(rows[0].source_url) == "https://shop.vivo.com.cn/api/v1/prodList/phone?pageNum=1&pageSize=100"
+
+
+def test_vivo_adapter_parses_official_product_list_payload():
+    rows = VivoAdapter().parse(
+        '{"code":0,"data":{"dataList":[{"id":242665,"skuCode":"1234567",'
+        '"skuName":"vivo Y6k 6GB+128GB","salePrice":1599,"brief":"大电池",'
+        '"images":[{"smallPic":"https://shopstatic.vivo.com.cn/y6k.png"}]}]}}',
+        "https://shop.vivo.com.cn/api/v1/prodList/phone?pageNum=1&pageSize=100",
+    )
+
+    assert rows[0].sku == "1234567"
+    assert rows[0].price == 1599
+    assert rows[0].image_url == "https://shopstatic.vivo.com.cn/y6k.png"
 
 
 @pytest.mark.asyncio
