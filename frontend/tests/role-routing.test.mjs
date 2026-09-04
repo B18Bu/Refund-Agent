@@ -33,3 +33,12 @@ test('消费者使用独立商城壳层，且壳层没有退款工作台导航',
   assert.match(shell, /退款售后/)
   assert.doesNotMatch(shell, /退款工作台/)
 })
+
+test('客服后台菜单不暴露商城交易入口', () => {
+  const shell = read('components/AppShell.tsx')
+  const csItems = shell.match(/const csItems = \[([\s\S]*?)\n\]/)?.[1]
+
+  assert.ok(csItems, '应显式定义客服后台导航')
+  assert.match(csItems, /\/service\/refunds/)
+  assert.doesNotMatch(csItems, /\/shop/)
+})
