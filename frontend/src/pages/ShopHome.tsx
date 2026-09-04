@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Empty, Input, Select, Spin, Tag } from 'antd'
-import { Link } from 'react-router-dom'
+import { FileTextOutlined, SafetyCertificateOutlined, ShoppingCartOutlined } from '@ant-design/icons'
+import { Link, useSearchParams } from 'react-router-dom'
 import client from '../api/client'
 import type { Product } from '../types/shop'
 
@@ -22,9 +23,10 @@ const categoryRules = [
 const lowestPrice = (product: Product) => Math.min(...product.variants.filter((item) => item.available).map((item) => item.price))
 
 export default function ShopHome() {
+  const [searchParams] = useSearchParams()
   const [items, setItems] = useState<Product[]>([])
   const [brands, setBrands] = useState<string[]>([])
-  const [keyword, setKeyword] = useState('')
+  const [keyword, setKeyword] = useState(() => searchParams.get('keyword') || '')
   const [brand, setBrand] = useState<string>()
   const [band, setBand] = useState<(typeof priceBands)[number]['key']>('all')
   const [loading, setLoading] = useState(true)
@@ -43,19 +45,32 @@ export default function ShopHome() {
   }
   useEffect(() => { client.get('/shop/brands').then((response) => setBrands(response.data)).catch(() => undefined) }, [])
   useEffect(() => { load() }, [params])
+  useEffect(() => { setKeyword(searchParams.get('keyword') || '') }, [searchParams])
   const categories = categoryRules.filter(({ keywords }) => items.some((product) => {
     const searchable = `${product.name} ${product.model || ''} ${product.description || ''}`.toLowerCase()
     return keywords.some((item) => searchable.includes(item))
   }))
 
+  const featuredProduct = items.find((product) => product.image_url) || items[0]
+
   return <main className="shop-home page-wrap">
-    <section className="shop-hero" aria-labelledby="shop-title">
-      <div className="shop-hero__content"><p className="shop-eyebrow">vivo · 小米官方目录</p><h1 id="shop-title">发现值得入手的科技好物</h1><p>手机与实用配件，价格和可售规格均以每日更新的品牌官方目录为准。</p></div>
-      <div className="shop-hero__actions"><Link className="shop-hero__action" to="/shop/cart">查看购物车</Link><span>真实目录 · 服务端价格</span></div>
-    </section>
-    {!loading && !error && categories.length > 0 && <nav className="shop-category-nav" aria-label="商品分类">
-      <span>快速选购</span>{categories.map((item) => <button key={item.label} type="button" onClick={() => setKeyword(item.keywords[0])}>{item.label}</button>)}
-    </nav>}
+    <div className="shop-portal">
+      <nav className="shop-category-menu" aria-label="全部商品分类">
+        <h2>商品分类</h2>
+        {categories.map((item) => <button key={item.label} type="button" onClick={() => setKeyword(item.keywords[0])}><b>{item.label}</b><span aria-hidden="true">官方目录</span></button>)}
+        {!loading && categories.length === 0 && <span className="shop-category-menu__empty">目录加载后显示分类</span>}
+      </nav>
+      <section className="shop-hero" aria-label="商城主会场">
+        <div className="shop-hero__content"><p className="shop-eyebrow">vivo · 小米官方目录</p><h1>发现值得入手的科技好物</h1><p>手机与实用配件，价格和可售规格均以品牌官方目录为准。</p><Link className="shop-hero__action" to={featuredProduct ? `/shop/products/${featuredProduct.id}` : '/shop'}>{featuredProduct ? '查看主推商品' : '浏览官方目录'}</Link></div>
+        {featuredProduct?.image_url && <img className="shop-hero__image" src={featuredProduct.image_url} alt={`${featuredProduct.brand} ${featuredProduct.name}`} />}
+      </section>
+      <aside className="shop-service-panel" aria-label="用户服务">
+        <div className="shop-service-panel__welcome"><span aria-hidden="true">M</span><div><b>欢迎来到品牌优选商城</b><small>官方目录每日更新</small></div></div>
+        <div className="shop-service-panel__links"><Link to="/shop/orders"><FileTextOutlined />我的订单</Link><Link to="/shop/returns"><SafetyCertificateOutlined />退款售后</Link><Link to="/shop/cart"><ShoppingCartOutlined />购物车</Link></div>
+        <div className="shop-service-panel__notice"><h2>商城快报</h2><p>商品价格和可售规格以实时目录为准。</p><p>订单与售后进度可在对应页面查询。</p></div>
+      </aside>
+    </div>
+    <section className="shop-service-strip" aria-label="商城服务说明"><span><b>真实目录</b>vivo 与小米官方来源</span><span><b>价格透明</b>服务端实时价格</span><span><b>订单可查</b>下单后可查看订单状态</span><span><b>售后入口</b>可提交退款售后申请</span></section>
     <section className="shop-filters" aria-label="商品筛选">
       <Input aria-label="搜索商品" placeholder="搜索型号或商品名称" value={keyword} onChange={(event) => setKeyword(event.target.value)} onPressEnter={load} />
       <Select aria-label="按品牌筛选" allowClear placeholder="全部品牌" value={brand} onChange={setBrand} options={brands.map((item) => ({ label: item, value: item }))} />

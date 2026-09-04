@@ -33,5 +33,8 @@ describe('ShopHome', () => {
     expect(await screen.findByText('vivo · 小米官方目录')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '耳机' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '平板' })).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '全部商品分类' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '商城主会场' })).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: '用户服务' })).toBeInTheDocument()
   })
 })

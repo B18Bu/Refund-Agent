@@ -1,24 +1,21 @@
-import { FileTextOutlined, HomeOutlined, LogoutOutlined, SafetyCertificateOutlined, ShoppingCartOutlined } from '@ant-design/icons'
-import { Badge, Button, Layout, Menu, Space } from 'antd'
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { CustomerServiceOutlined, FileTextOutlined, LogoutOutlined, MenuOutlined, SearchOutlined, SafetyCertificateOutlined, ShoppingCartOutlined } from '@ant-design/icons'
+import { Badge, Button, Input, Layout } from 'antd'
+import { FormEvent, useState } from 'react'
+import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { getSessionUser } from '../types/auth'
 
 const { Header, Content } = Layout
 
-const navigation = [
-  { key: '/shop', icon: <HomeOutlined />, label: '商城首页' },
-  { key: '/shop/cart', icon: <ShoppingCartOutlined />, label: '购物车' },
-  { key: '/shop/orders', icon: <FileTextOutlined />, label: '我的订单' },
-  { key: '/shop/returns', icon: <SafetyCertificateOutlined />, label: '退款售后' },
-]
-
 export default function CustomerShell() {
   const nav = useNavigate()
-  const location = useLocation()
-  const selectedKey = navigation.some((item) => location.pathname === item.key) ? location.pathname : '/shop'
+  const [searchTerm, setSearchTerm] = useState('')
   const logout = () => {
     localStorage.removeItem('token')
     nav('/login', { replace: true })
+  }
+  const search = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    nav(searchTerm.trim() ? `/shop?keyword=${encodeURIComponent(searchTerm.trim())}` : '/shop')
   }
 
   if (getSessionUser()?.role !== 'customer') return <Navigate to="/" replace />
@@ -26,15 +23,28 @@ export default function CustomerShell() {
   return (
     <Layout className="customer-shell">
       <Header className="customer-header">
-        <button className="customer-brand" type="button" onClick={() => nav('/shop')} aria-label="返回商城首页">
-          <span className="customer-brand__mark" aria-hidden="true">M</span>
-          <span>品牌优选商城</span>
-        </button>
-        <Menu className="customer-nav" mode="horizontal" selectedKeys={[selectedKey]} items={navigation} onClick={({ key }) => nav(key)} />
-        <Space className="customer-header__actions">
-          <Badge size="small" offset={[-2, 4]}><Button aria-label="打开购物车" type="text" icon={<ShoppingCartOutlined />} onClick={() => nav('/shop/cart')}>购物车</Button></Badge>
-          <Button aria-label="退出登录" type="text" icon={<LogoutOutlined />} onClick={logout}>退出</Button>
-        </Space>
+        <nav className="customer-utility-nav" aria-label="商城工具栏">
+          <span>您好，欢迎来到品牌优选商城</span>
+          <div><Link to="/shop/orders">我的订单</Link><Link to="/shop/returns">退款售后</Link><Link to="/shop/cart">购物车</Link><button type="button" onClick={logout}><LogoutOutlined aria-hidden="true" />退出登录</button></div>
+        </nav>
+        <div className="customer-search-row">
+          <Link className="customer-brand" to="/shop" aria-label="返回商城首页">
+            <span className="customer-brand__mark" aria-hidden="true">M</span>
+            <span><b>品牌优选</b><small>BRAND SELECT MALL</small></span>
+          </Link>
+          <form className="customer-search" role="search" aria-label="搜索商城商品" onSubmit={search}>
+            <Input aria-label="搜索商城商品" placeholder="搜索手机、耳机、数据线等官方商品" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} suffix={<SearchOutlined aria-hidden="true" />} />
+            <Button htmlType="submit" type="primary">搜索</Button>
+          </form>
+          <div className="customer-header__actions">
+            <Link to="/shop/orders"><FileTextOutlined aria-hidden="true" />我的订单</Link>
+            <Badge size="small" offset={[-2, 3]}><Link to="/shop/cart"><ShoppingCartOutlined aria-hidden="true" />购物车</Link></Badge>
+          </div>
+        </div>
+        <nav className="customer-main-nav" aria-label="商城主导航">
+          <Link className="customer-main-nav__categories" to="/shop"><MenuOutlined aria-hidden="true" />全部商品分类</Link>
+          <Link to="/shop">商城首页</Link><Link to="/shop?keyword=手机">手机数码</Link><Link to="/shop?keyword=耳机">耳机配件</Link><Link to="/shop/returns"><SafetyCertificateOutlined aria-hidden="true" />售后服务</Link><Link to="/shop/orders"><CustomerServiceOutlined aria-hidden="true" />订单服务</Link>
+        </nav>
       </Header>
       <Content className="customer-content"><Outlet /></Content>
     </Layout>
