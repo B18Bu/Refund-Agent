@@ -39,8 +39,22 @@ def test_create_ticket_idempotent(client, db_session, redis_client):
 
 def test_approve_requires_supervisor(client, db_session, redis_client):
     cs_tok = _token(client, db_session, "cs2", Role.CS)
+    cs = db_session.query(User).filter(User.username == "cs2").one()
+    from app.models import Decision, Ticket, TicketStatus
+
+    ticket = Ticket(
+        ticket_no="non-return-suspended",
+        user_id=cs.id,
+        amount=128,
+        image_paths=[],
+        status=TicketStatus.SUSPENDED,
+        decision=Decision.PENDING,
+        thread_id="non-return-thread",
+    )
+    db_session.add(ticket)
+    db_session.commit()
     r = client.post(
-        "/api/tickets/1/approve",
+        f"/api/tickets/{ticket.id}/approve",
         json={"action": "APPROVE"},
         headers={"Authorization": f"Bearer {cs_tok}"},
     )

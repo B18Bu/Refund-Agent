@@ -27,11 +27,19 @@ test('消费者使用独立商城壳层，且壳层没有退款工作台导航',
   const app = read('App.tsx')
   const shell = read('components/CustomerShell.tsx')
 
-  assert.match(app, /<Route element={<CustomerShell \/>}>/)
+  assert.match(app, /<CustomerOnly><CustomerShell \/><\/CustomerOnly>/)
   assert.match(shell, /购物车/)
   assert.match(shell, /我的订单/)
   assert.match(shell, /退款售后/)
   assert.doesNotMatch(shell, /退款工作台/)
+})
+
+test('商城路由由消费者守卫保护，员工直链回到职责首页', () => {
+  const app = read('App.tsx')
+
+  assert.match(app, /function CustomerOnly/)
+  assert.match(app, /role === 'customer' \? children : <RoleHome \/>/)
+  assert.match(app, /<Route element={<CustomerOnly><CustomerShell \/><\/CustomerOnly>}>/)
 })
 
 test('客服后台菜单不暴露商城交易入口', () => {

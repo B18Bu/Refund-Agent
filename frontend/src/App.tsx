@@ -29,6 +29,10 @@ function RoleHome() {
   return <Navigate to={user?.role === 'customer' ? '/shop' : user?.role === 'cs' ? '/service/refunds' : '/monitor'} replace />
 }
 
+function CustomerOnly({ children }: { children: React.ReactElement }) {
+  return getSessionUser()?.role === 'customer' ? children : <RoleHome />
+}
+
 function SupervisorOnly({ children }: { children: React.ReactElement }) {
   return getSessionUser()?.role === 'sv' ? children : <Navigate to="/service/refunds" replace />
 }
@@ -43,7 +47,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<RequireSession />}>
-          <Route element={<CustomerShell />}>
+          <Route element={<CustomerOnly><CustomerShell /></CustomerOnly>}>
             <Route path="/shop" element={<ShopHome />} />
             <Route path="/shop/products/:id" element={<ProductDetail />} />
             <Route path="/shop/cart" element={<Cart />} />
