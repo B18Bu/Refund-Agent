@@ -4,7 +4,7 @@ from app.security import create_access_token
 
 
 def _headers(db_session, username="return-api-user"):
-    user = User(username=username, password_hash="unused", role=Role.CS)
+    user = User(username=username, password_hash="unused", role=Role.CUSTOMER)
     db_session.add(user)
     db_session.commit()
     return {"Authorization": f"Bearer {create_access_token(user.id, user.role.value)}"}, user

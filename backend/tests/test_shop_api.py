@@ -1,10 +1,11 @@
 """商品目录游客只读接口。"""
-from app.commerce_models import Order, OrderStatus, Product, ProductStatus, ProductVariant
+from app.commerce_models import CatalogState, Order, OrderStatus, Product, ProductStatus, ProductVariant
 from app.models import Role, User
 from app.security import create_access_token
 
 
 def _seed_products(db_session):
+    db_session.add(CatalogState(id=1, status="READY"))
     vivo = Product(brand="vivo", name="X100 Pro", model="X100", status=ProductStatus.ACTIVE,
                    source_url="https://www.vivo.com.cn/products/x100")
     oppo = Product(brand="OPPO", name="Find X8", status=ProductStatus.ACTIVE,
@@ -36,7 +37,7 @@ def test_product_detail_404_and_brands(client, db_session):
 
 
 def _user_headers(db_session, username="buyer"):
-    user = User(username=username, password_hash="unused", role=Role.CS)
+    user = User(username=username, password_hash="unused", role=Role.CUSTOMER)
     db_session.add(user)
     db_session.commit()
     return {"Authorization": f"Bearer {create_access_token(user.id, user.role.value)}"}, user
