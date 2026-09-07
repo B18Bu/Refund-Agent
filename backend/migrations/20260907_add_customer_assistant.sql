@@ -40,3 +40,19 @@ CREATE TABLE IF NOT EXISTS customer_preference_audits (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS ix_customer_preference_audits_user_id ON customer_preference_audits (user_id);
+
+CREATE TABLE IF NOT EXISTS customer_catalog_chunks (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    source_url VARCHAR(1024) NOT NULL,
+    crawled_at TIMESTAMP,
+    source_hash VARCHAR(128) NOT NULL,
+    content TEXT NOT NULL,
+    content_hash VARCHAR(64) NOT NULL,
+    embedding VECTOR(512) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_customer_catalog_chunks_source_content UNIQUE (product_id, source_url, content_hash)
+);
+CREATE INDEX IF NOT EXISTS ix_customer_catalog_chunks_product_id ON customer_catalog_chunks (product_id);
+CREATE INDEX IF NOT EXISTS ix_customer_catalog_chunks_source_hash ON customer_catalog_chunks (source_hash);
+CREATE INDEX IF NOT EXISTS ix_customer_catalog_chunks_content_hash ON customer_catalog_chunks (content_hash);

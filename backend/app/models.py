@@ -111,6 +111,7 @@ from app.rag.models import RagChunk, RagDocument, RagQueryLog  # noqa: E402,F401
 from app.customer_assistant.models import (  # noqa: E402,F401
     CustomerPreference,
     CustomerPreferenceAudit,
+    CustomerCatalogChunk,
     CustomerPrivacySetting,
     IgnoredPreference,
 )
