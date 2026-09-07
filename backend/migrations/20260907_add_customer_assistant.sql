@@ -56,3 +56,25 @@ CREATE TABLE IF NOT EXISTS customer_catalog_chunks (
 CREATE INDEX IF NOT EXISTS ix_customer_catalog_chunks_product_id ON customer_catalog_chunks (product_id);
 CREATE INDEX IF NOT EXISTS ix_customer_catalog_chunks_source_hash ON customer_catalog_chunks (source_hash);
 CREATE INDEX IF NOT EXISTS ix_customer_catalog_chunks_content_hash ON customer_catalog_chunks (content_hash);
+
+-- 早期部署曾由 ORM 在 PostgreSQL 中创建 orders.status 枚举。新订单完成状态
+-- 必须先补齐该遗留枚举，否则消费者授权重建偏好时筛选 COMPLETED 会被数据库拒绝。
+DO $$
+DECLARE
+    order_status_type REGTYPE;
+BEGIN
+    SELECT attribute.atttypid::REGTYPE
+    INTO order_status_type
+    FROM pg_attribute AS attribute
+    JOIN pg_class AS relation ON relation.oid = attribute.attrelid
+    JOIN pg_type AS type ON type.oid = attribute.atttypid
+    WHERE relation.oid = to_regclass('orders')
+      AND attribute.attname = 'status'
+      AND attribute.attnum > 0
+      AND NOT attribute.attisdropped
+      AND type.typtype = 'e';
+
+    IF order_status_type IS NOT NULL THEN
+        EXECUTE format('ALTER TYPE %s ADD VALUE IF NOT EXISTS %L', order_status_type, 'COMPLETED');
+    END IF;
+END $$;
