@@ -29,7 +29,7 @@ def privacy_enabled(session: Session, user_id: int) -> bool:
 
 
 def enable_privacy(session: Session, user_id: int) -> None:
-    setting = session.get(CustomerPrivacySetting, user_id)
+    setting = _locked_privacy_setting(session, user_id)
     if setting is None:
         session.add(CustomerPrivacySetting(user_id=user_id, enabled=True))
     else:
@@ -39,7 +39,7 @@ def enable_privacy(session: Session, user_id: int) -> None:
 
 
 def disable_privacy(session: Session, user_id: int) -> None:
-    setting = session.get(CustomerPrivacySetting, user_id)
+    setting = _locked_privacy_setting(session, user_id)
     if setting is None:
         session.add(CustomerPrivacySetting(user_id=user_id, enabled=False))
     else:
@@ -72,7 +72,8 @@ def ignored_preference_keys(session: Session, user_id: int) -> set[str]:
 
 def set_manual_preference(session: Session, user_id: int, preference_key: str, value: Any) -> None:
     _validate_value(preference_key, value)
-    if not privacy_enabled(session, user_id):
+    setting = _locked_privacy_setting(session, user_id)
+    if setting is None or not setting.enabled:
         raise ValueError("未授权个性化偏好")
     preference = _preference(session, user_id, preference_key)
     if preference is None:
@@ -85,7 +86,8 @@ def set_manual_preference(session: Session, user_id: int, preference_key: str, v
 
 def preference_values(session: Session, user_id: int, preference_key: str) -> Any:
     _validate_key(preference_key)
-    if not privacy_enabled(session, user_id):
+    setting = _locked_privacy_setting(session, user_id)
+    if setting is None or not setting.enabled:
         return []
     preference = _preference(session, user_id, preference_key)
     if preference is None:
@@ -94,7 +96,8 @@ def preference_values(session: Session, user_id: int, preference_key: str) -> An
 
 
 def rebuild_preferences(session: Session, user_id: int, now: datetime) -> list[CustomerPreference]:
-    if not privacy_enabled(session, user_id):
+    setting = _locked_privacy_setting(session, user_id)
+    if setting is None or not setting.enabled:
         return []
 
     items = eligible_order_items(session, user_id, now - timedelta(days=180))
@@ -128,8 +131,8 @@ def _aggregate(items) -> dict[str, tuple[Any, list[int], float]]:
         return {}
 
     order_ids = sorted({item.order_id for item in items})
-    categories = _ranked_strings(item.product_snapshot_json.get("category") for item in items)
-    brands = _ranked_strings(item.product_snapshot_json.get("brand") for item in items)
+    categories = _ranked_strings(_value_for_key(item, "category") for item in items)
+    brands = _ranked_strings(_value_for_key(item, "brand") for item in items)
     sizes = _ranked_strings(_value_for_key(item, "size") for item in items)
     prices = [float(Decimal(str(item.unit_price))) for item in items]
     recent_product_ids = list(dict.fromkeys(
@@ -154,10 +157,25 @@ def _ranked_strings(values) -> list[str]:
 
 
 def _value_for_key(item, key: str) -> Any:
+    snapshot = _snapshot(item)
     if key != "size":
-        return item.product_snapshot_json.get(key)
-    spec_json = item.product_snapshot_json.get("spec_json")
-    return spec_json.get("size") if isinstance(spec_json, dict) else item.product_snapshot_json.get("size")
+        return snapshot.get(key)
+    spec_json = snapshot.get("spec_json")
+    return spec_json.get("size") if isinstance(spec_json, dict) else snapshot.get("size")
+
+
+def _snapshot(item) -> dict:
+    snapshot = item.product_snapshot_json
+    return snapshot if isinstance(snapshot, dict) else {}
+
+
+def _locked_privacy_setting(session: Session, user_id: int) -> CustomerPrivacySetting | None:
+    """在写入画像的同一事务中锁定授权行，避免关闭与旧写入交错。"""
+    return (session.query(CustomerPrivacySetting)
+            .populate_existing()
+            .filter(CustomerPrivacySetting.user_id == user_id)
+            .with_for_update()
+            .one_or_none())
 
 
 def _clear_automatic(preference: CustomerPreference) -> None:

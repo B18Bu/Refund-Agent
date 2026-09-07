@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import pytest
+from sqlalchemy.orm import sessionmaker
 
 from app.commerce_models import Order, OrderItem, OrderStatus, Product, ProductStatus, ProductVariant
 from app.models import Role, User
@@ -267,3 +268,99 @@ def test_untrusted_snapshot_fields_are_skipped_without_blocking_other_valid_pref
     assert preference_values(db_session, user.id, "brand") == ["oppo"]
     assert preference_values(db_session, user.id, "category") == ["手机"]
     assert preference_values(db_session, user.id, "size") == ["6.7英寸"]
+
+
+def test_preference_writes_lock_privacy_setting_before_reading_enabled_state(db_session, monkeypatch):
+    from app.customer_assistant import preferences
+
+    user = User(username="privacy-lock-protocol", password_hash="unused", role=Role.CUSTOMER)
+    db_session.add(user)
+    db_session.commit()
+    locked_user_ids = []
+    original = preferences._locked_privacy_setting
+
+    def record_lock(session, user_id):
+        locked_user_ids.append(user_id)
+        return original(session, user_id)
+
+    monkeypatch.setattr(preferences, "_locked_privacy_setting", record_lock)
+    preferences.enable_privacy(db_session, user.id)
+    preferences.set_manual_preference(db_session, user.id, "brand", ["vivo"])
+    preferences.rebuild_preferences(db_session, user.id, datetime(2026, 9, 7))
+    preferences.disable_privacy(db_session, user.id)
+
+    assert locked_user_ids == [user.id, user.id, user.id, user.id]
+    with pytest.raises(ValueError, match="授权"):
+        preferences.set_manual_preference(db_session, user.id, "brand", ["oppo"])
+
+
+def test_non_dict_order_snapshots_skip_text_fields_and_keep_all_valid_preference_types(db_session):
+    from app.customer_assistant.preferences import enable_privacy, rebuild_preferences, preference_values
+
+    user = User(username="non-dict-snapshots", password_hash="unused", role=Role.CUSTOMER)
+    db_session.add(user)
+    db_session.commit()
+    _eligible_brand_item(db_session, user, "snapshot-valid", "vivo", datetime(2026, 9, 6), price=199,
+                         snapshot={"brand": "vivo", "category": "手机", "spec_json": {"size": "6.7英寸"}})
+    _eligible_brand_item(db_session, user, "snapshot-null", "oppo", datetime(2026, 9, 6), price=299)
+    _eligible_brand_item(db_session, user, "snapshot-list", "xiaomi", datetime(2026, 9, 6), price=399)
+    _eligible_brand_item(db_session, user, "snapshot-string", "honor", datetime(2026, 9, 6), price=499)
+    items = db_session.query(OrderItem).order_by(OrderItem.id).all()
+    items[1].product_snapshot_json = None
+    items[2].product_snapshot_json = ["not", "an", "object"]
+    items[3].product_snapshot_json = "not an object"
+    db_session.commit()
+    enable_privacy(db_session, user.id)
+
+    keys = {row.preference_key for row in rebuild_preferences(db_session, user.id, datetime(2026, 9, 7))}
+
+    assert keys == {"category", "brand", "size", "budget", "purchase_frequency", "recent_products"}
+    assert preference_values(db_session, user.id, "brand") == ["vivo"]
+    assert preference_values(db_session, user.id, "category") == ["手机"]
+    assert preference_values(db_session, user.id, "size") == ["6.7英寸"]
+    assert preference_values(db_session, user.id, "budget") == {"min": 199.0, "max": 499.0, "currency": "CNY"}
+    assert preference_values(db_session, user.id, "purchase_frequency") == {"orders": 4, "window_days": 180}
+    assert len(preference_values(db_session, user.id, "recent_products")) == 4
+
+
+def test_preference_read_refreshes_locked_privacy_setting_after_another_session_disables(db_session):
+    from app.customer_assistant.preferences import (
+        disable_privacy, enable_privacy, preference_values, set_manual_preference,
+    )
+
+    user = User(username="privacy-read-lock", password_hash="unused", role=Role.CUSTOMER)
+    db_session.add(user)
+    db_session.commit()
+    enable_privacy(db_session, user.id)
+    set_manual_preference(db_session, user.id, "brand", ["vivo"])
+    assert preference_values(db_session, user.id, "brand") == ["vivo"]
+
+    OtherSession = sessionmaker(bind=db_session.get_bind())
+    other_session = OtherSession()
+    try:
+        disable_privacy(other_session, user.id)
+    finally:
+        other_session.close()
+
+    assert preference_values(db_session, user.id, "brand") == []
+
+
+def test_preference_read_locks_privacy_setting_before_loading_profile(db_session, monkeypatch):
+    from app.customer_assistant import preferences
+
+    user = User(username="privacy-read-lock-protocol", password_hash="unused", role=Role.CUSTOMER)
+    db_session.add(user)
+    db_session.commit()
+    preferences.enable_privacy(db_session, user.id)
+    preferences.set_manual_preference(db_session, user.id, "brand", ["vivo"])
+    calls = []
+    original = preferences._locked_privacy_setting
+
+    def record_lock(session, user_id):
+        calls.append(user_id)
+        return original(session, user_id)
+
+    monkeypatch.setattr(preferences, "_locked_privacy_setting", record_lock)
+
+    assert preferences.preference_values(db_session, user.id, "brand") == ["vivo"]
+    assert calls == [user.id]
