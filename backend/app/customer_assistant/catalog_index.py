@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session, joinedload
 
 from app.commerce_models import Product, ProductStatus
+from app.customer_assistant.embeddings import CatalogEmbeddingClient
 from app.customer_assistant.models import CustomerCatalogChunk
-from app.rag.embeddings import EmbeddingClient
 from app.security.gateway import DLP
 
 
@@ -18,7 +18,7 @@ class CustomerCatalogIndexResult:
 
 
 class CustomerCatalogIndexer:
-    def __init__(self, session: Session, embedding_client: EmbeddingClient):
+    def __init__(self, session: Session, embedding_client: CatalogEmbeddingClient):
         self._session = session
         self._embedding_client = embedding_client
 

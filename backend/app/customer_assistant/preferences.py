@@ -24,7 +24,7 @@ _SENSITIVE_TEXT = re.compile(r"(?:\d{7,}|地址|省|市|区|路|支付|银行卡
 
 
 def privacy_enabled(session: Session, user_id: int) -> bool:
-    setting = session.get(CustomerPrivacySetting, user_id)
+    setting = _locked_privacy_setting(session, user_id)
     return bool(setting and setting.enabled)
 
 

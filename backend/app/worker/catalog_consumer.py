@@ -4,10 +4,10 @@ import logging
 import time
 
 from app.catalog_initialization import CatalogStatus, run_catalog_initialization
+from app.customer_assistant.embeddings import CatalogEmbeddingClient
 from app.customer_assistant.catalog_index import CustomerCatalogIndexer
 from app.config import settings
 from app.db import SessionLocal
-from app.rag.embeddings import EmbeddingClient
 
 
 logger = logging.getLogger("catalog-worker")
@@ -18,7 +18,7 @@ def run_once() -> None:
     try:
         result = asyncio.run(run_catalog_initialization(db))
         if result.status == CatalogStatus.READY and not result.used_cached_catalog:
-            CustomerCatalogIndexer(db, EmbeddingClient()).index()
+            CustomerCatalogIndexer(db, CatalogEmbeddingClient()).index()
             db.commit()
     except Exception:
         db.rollback()

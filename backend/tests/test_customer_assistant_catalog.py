@@ -1,3 +1,4 @@
+import inspect
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock
 
@@ -65,7 +66,6 @@ def test_index_excludes_unavailable_products_and_preserves_source(db_session):
 def test_index_masks_sensitive_product_text_and_keeps_consumer_tables_isolated(db_session):
     from app.customer_assistant.catalog_index import CustomerCatalogIndexer
     from app.customer_assistant.models import CustomerCatalogChunk
-    from app.rag.models import RagChunk, RagDocument
 
     _product_with_source(
         db_session,
@@ -79,8 +79,14 @@ def test_index_masks_sensitive_product_text_and_keeps_consumer_tables_isolated(d
     chunk = db_session.query(CustomerCatalogChunk).one()
     assert "138****5678" in chunk.content
     assert "h***@example.com" in chunk.content
-    assert db_session.query(RagDocument).count() == 0
-    assert db_session.query(RagChunk).count() == 0
+
+
+def test_customer_catalog_index_and_worker_do_not_depend_on_app_rag_modules():
+    from app.customer_assistant import catalog_index
+    from app.worker import catalog_consumer
+
+    assert "app.rag" not in inspect.getsource(catalog_index)
+    assert "app.rag" not in inspect.getsource(catalog_consumer)
 
 
 def test_reindex_refreshes_source_traceability_when_product_content_is_unchanged(db_session):

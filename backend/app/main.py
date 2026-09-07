@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.db import Base, engine, SessionLocal
 from app.models import Role, User
-from app.routers import auth, evaluations, files, knowledge, security_governance, tickets, shop
+from app.routers import auth, customer_assistant, evaluations, files, knowledge, security_governance, tickets, shop
 from app.security import hash_password
 
 
@@ -61,6 +61,7 @@ app.include_router(evaluations.router)
 app.include_router(knowledge.router)
 app.include_router(security_governance.router)
 app.include_router(shop.router)
+app.include_router(customer_assistant.router)
 
 
 @app.get("/healthz")
