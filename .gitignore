@@ -63,3 +63,4 @@ artifacts/local/e2e/
 artifacts/local/diagnostics/
 artifacts/local/loadtest-report.html
 data/local/
+/.worktrees/
