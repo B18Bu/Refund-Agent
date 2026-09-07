@@ -1,0 +1,6 @@
+# 仅供 rag-embedding 镜像使用；PyTorch CPU wheel 在 Dockerfile 中单独安装。
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.3
+sentence-transformers>=3.0,<4.0

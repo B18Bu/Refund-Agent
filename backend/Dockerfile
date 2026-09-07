@@ -1,3 +1,24 @@
+FROM python:3.11-slim AS rag-embedding
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+WORKDIR /app
+
+# 索引服务只加载已挂载的本地模型。固定 CPU wheel，避免解析 CUDA 和 OCR 依赖。
+COPY requirements-rag-embedding.txt ./
+RUN pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools \
+ && pip install --no-cache-dir --retries 10 --timeout 300 --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.tuna.tsinghua.edu.cn/simple "torch==2.6.0+cpu" \
+ && pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements-rag-embedding.txt
+
+COPY app ./app
+COPY rag_embedding_service.py ./
+
+EXPOSE 8080
+CMD ["uvicorn", "rag_embedding_service:app", "--host", "0.0.0.0", "--port", "8080"]
+
 FROM python:3.11-slim
 
 # 中文 locale + 基础工具

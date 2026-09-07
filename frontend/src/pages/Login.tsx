@@ -11,7 +11,7 @@ export default function Login() {
       const { data } = await client.post('/auth/login', v)
       localStorage.setItem('token', data.access_token)
       const role = getSessionUser()?.role
-      nav(role === 'customer' ? '/shop' : role === 'cs' ? '/service/refunds' : '/monitor')
+      nav(role === 'customer' ? '/shop' : role === 'cs' ? '/service/orders' : '/monitor')
     } catch (e: any) {
       message.error(e.response?.data?.detail || '登录失败')
     }

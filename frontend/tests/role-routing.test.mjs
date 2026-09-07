@@ -18,9 +18,9 @@ test('不同账号登录后进入职责对应的首页', () => {
   const login = read('pages/Login.tsx')
 
   assert.match(app, /user\?\.role === 'customer' \? '\/shop'/)
-  assert.match(app, /user\?\.role === 'cs' \? '\/service\/refunds'/)
+  assert.match(app, /user\?\.role === 'cs' \? '\/service\/orders'/)
   assert.match(login, /role === 'customer' \? '\/shop'/)
-  assert.match(login, /role === 'cs' \? '\/service\/refunds'/)
+  assert.match(login, /role === 'cs' \? '\/service\/orders'/)
 })
 
 test('消费者使用独立商城壳层，且壳层没有退款工作台导航', () => {
@@ -47,14 +47,15 @@ test('客服后台菜单不暴露商城交易入口', () => {
   const csItems = shell.match(/const csItems = \[([\s\S]*?)\n\]/)?.[1]
 
   assert.ok(csItems, '应显式定义客服后台导航')
-  assert.match(csItems, /\/service\/refunds/)
+  assert.match(csItems, /\/service\/orders/)
   assert.doesNotMatch(csItems, /\/shop/)
 })
 
 test('客服只能使用退款审核路由，其他后台页面由主管守卫', () => {
   const app = read('App.tsx')
 
-  assert.match(app, /path="\/service\/refunds" element={<ServiceRefunds \/>}/)
+  assert.match(app, /path="\/service\/orders" element={<ServiceRefunds \/>}/)
+  assert.match(app, /path="\/service\/refunds" element={<ServiceRefunds defaultTab="returns" \/>}/)
   assert.match(app, /path="\/workspace" element={<SupervisorOnly><Dashboard showScreen \/><\/SupervisorOnly>}/)
   assert.match(app, /path="\/my-tickets" element={<SupervisorOnly><MyTickets \/><\/SupervisorOnly>}/)
   assert.match(app, /path="\/process" element={<SupervisorOnly><ProcessOverview \/><\/SupervisorOnly>}/)

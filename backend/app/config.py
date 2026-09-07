@@ -5,6 +5,7 @@
 - OCR：本地 PaddleOCR 推理引擎（MVP 硬性要求，禁止远程 OCR 服务）。
 - 决策阈值 / 锁 / Streams 配置统一收敛于此。
 """
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -70,6 +71,17 @@ class Settings(BaseSettings):
     OCR_USE_ANGLE_CLS: bool = True
     OCR_LANG: str = "ch"
     OCR_MODEL_DIR: str = ""  # 必须显式配置；模型缺失时禁止隐式下载
+
+    # ===== RAG 本地 embedding =====
+    RAG_EMBEDDING_MODEL_DIR: str = r"D:\作业\model\bge-small-zh-v1.5"
+    RAG_EMBEDDING_DIMENSION: int = 512
+
+    @field_validator("RAG_EMBEDDING_DIMENSION")
+    @classmethod
+    def validate_rag_embedding_dimension(cls, value: int) -> int:
+        if value != 512:
+            raise ValueError("RAG embedding 维度必须固定为 512")
+        return value
 
     # ===== 文件上传 =====
     UPLOAD_DIR: str = "data/uploads"

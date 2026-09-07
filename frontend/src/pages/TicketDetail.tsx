@@ -7,6 +7,7 @@ import client from '../api/client'
 import FlowCanvas from '../components/FlowCanvas'
 import ApprovePanel from '../components/ApprovePanel'
 import EvaluationDetail from '../components/EvaluationDetail'
+import KnowledgeEvidence from '../components/KnowledgeEvidence'
 
 type Ticket = {
   id: number
@@ -275,7 +276,10 @@ export default function TicketDetail() {
       </Card>
 
       {user?.role === 'sv' && (
-        <EvaluationDetail ticketId={Number(id)} refreshVersion={evaluationRefreshVersion} />
+        <>
+          <KnowledgeEvidence endpoint={`/tickets/${id}/knowledge`} />
+          <EvaluationDetail ticketId={Number(id)} refreshVersion={evaluationRefreshVersion} />
+        </>
       )}
 
       {t.status === 'SUSPENDED' && user?.role === 'sv' && (

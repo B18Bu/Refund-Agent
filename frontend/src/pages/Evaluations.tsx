@@ -5,6 +5,7 @@ import type { TableColumnsType } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import type { EvaluationRecord, EvaluationSummary, MeasurementType, OrchestrationSnapshot } from '../types/evaluation'
+import KnowledgeEvidence from '../components/KnowledgeEvidence'
 
 const { Paragraph, Text, Title } = Typography
 const sourceLabels: Record<MeasurementType, string> = {
@@ -106,6 +107,8 @@ export default function Evaluations() {
           {summary.measurement_types.map((type) => <Tag key={type}>{sourceLabels[type]}</Tag>)}
         </div>
       </header>
+
+      <KnowledgeEvidence endpoint="/evaluations/knowledge" title="评测政策依据" />
 
       {orchestration && <section className="orchestration-panel" aria-label="工单 8 编排评测">
         <Card title="编排评测中心" extra={<Tag color="blue">工单 8</Tag>}>

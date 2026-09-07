@@ -69,3 +69,18 @@ test('Token 增加必须用文字和绝对值表达增幅', () => {
     assert.match(source, /Math\.abs/)
   }
 })
+
+test('主管页面展示可追溯政策依据且不替代审批', () => {
+  const evidence = read('components/KnowledgeEvidence.tsx')
+  const ticket = read('pages/TicketDetail.tsx')
+  const evaluations = read('pages/Evaluations.tsx')
+
+  assert.match(evidence, /来源/)
+  assert.match(evidence, /章节/)
+  assert.match(evidence, /版本/)
+  assert.match(evidence, /相似度/)
+  assert.match(evidence, /unavailable/)
+  assert.match(ticket, /user\?\.role === 'sv'[\s\S]*KnowledgeEvidence/)
+  assert.match(evaluations, /KnowledgeEvidence/)
+  assert.doesNotMatch(evidence, /审批建议|自动退赔|批准退赔/)
+})

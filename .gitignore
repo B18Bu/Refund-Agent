@@ -34,6 +34,7 @@ data/uploads/
 
 # Claude Code 运行时目录
 .claude/worktrees/
+.worktrees/
 .superpowers/
 
 # 临时联调文件

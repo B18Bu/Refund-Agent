@@ -7,16 +7,16 @@ from sqlalchemy import text
 
 from app.db import Base, engine, SessionLocal
 from app.models import Role, User
-from app.routers import auth, evaluations, files, security_governance, tickets, shop
+from app.routers import auth, evaluations, files, knowledge, security_governance, tickets, shop
 from app.security import hash_password
 
 
 def init_db() -> None:
-    # 评测表必须由显式 SQL 迁移创建，禁止应用启动时静默改变生产结构。
+    # 评测和 RAG 表必须由显式 SQL 迁移创建，禁止应用启动时静默改变生产结构。
     application_tables = [
         table
         for name, table in Base.metadata.tables.items()
-        if name != "agent_evaluation_runs"
+        if name not in {"agent_evaluation_runs", "rag_documents", "rag_chunks", "rag_query_logs"}
     ]
     Base.metadata.create_all(bind=engine, tables=application_tables)
 
@@ -54,6 +54,7 @@ app.include_router(auth.router)
 app.include_router(tickets.router)
 app.include_router(files.router)
 app.include_router(evaluations.router)
+app.include_router(knowledge.router)
 app.include_router(security_governance.router)
 app.include_router(shop.router)
 
