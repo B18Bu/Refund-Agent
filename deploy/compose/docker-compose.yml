@@ -83,6 +83,23 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # 消费者偏好表只通过显式迁移创建，应用启动不得补建。
+  customer-assistant-migrate:
+    image: pgvector/pgvector:pg15
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: refund
+    volumes:
+      - ../../backend/migrations/20260907_add_customer_assistant.sql:/migrations/20260907_add_customer_assistant.sql:ro
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/migrations/20260907_add_customer_assistant.sql"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rag-migrate:
+        condition: service_completed_successfully
+
   rag-embedding:
     build:
       context: ../../backend
@@ -149,6 +166,8 @@ services:
         condition: service_completed_successfully
       rag-migrate:
         condition: service_completed_successfully
+      customer-assistant-migrate:
+        condition: service_completed_successfully
     ports:
       - "8001:8000"
     restart: unless-stopped
@@ -196,6 +215,8 @@ services:
       redis:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      customer-assistant-migrate:
         condition: service_completed_successfully
     restart: unless-stopped
 

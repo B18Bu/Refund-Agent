@@ -108,6 +108,12 @@ class AgentTrace(Base):
 # 独立模型仍需在应用启动时注册到 SQLAlchemy metadata；生产建表只执行显式迁移。
 from app.evaluation.models import AgentEvaluationRun  # noqa: E402,F401
 from app.rag.models import RagChunk, RagDocument, RagQueryLog  # noqa: E402,F401
+from app.customer_assistant.models import (  # noqa: E402,F401
+    CustomerPreference,
+    CustomerPreferenceAudit,
+    CustomerPrivacySetting,
+    IgnoredPreference,
+)
 from app.commerce_models import (  # noqa: E402,F401
     Address,
     CartItem,

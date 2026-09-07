@@ -16,7 +16,11 @@ def init_db() -> None:
     application_tables = [
         table
         for name, table in Base.metadata.tables.items()
-        if name not in {"agent_evaluation_runs", "rag_documents", "rag_chunks", "rag_query_logs"}
+        if name not in {
+            "agent_evaluation_runs", "rag_documents", "rag_chunks", "rag_query_logs",
+            "customer_privacy_settings", "customer_preferences", "customer_preference_ignores",
+            "customer_preference_audits",
+        }
     ]
     Base.metadata.create_all(bind=engine, tables=application_tables)
 
