@@ -69,3 +69,52 @@ def test_customer_assistant_reply_returns_source_crawl_time(client, db_session):
         "source_url": "https://example.test/x100",
         "crawled_at": "2026-09-07T08:30:00",
     }]
+
+
+def test_customer_privacy_api_uses_authenticated_customer_and_preserves_ignored_keys(client, db_session):
+    from app.customer_assistant.models import CustomerPreferenceAudit
+
+    token = _token(client, db_session, "privacy-api-customer", Role.CUSTOMER)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    initial = client.get("/api/customer-assistant/privacy", headers=headers)
+    assert initial.status_code == 200
+    assert initial.json() == {"enabled": False, "preferences": [], "ignored_keys": []}
+
+    enabled = client.put("/api/customer-assistant/privacy", json={"enabled": True}, headers=headers)
+    assert enabled.status_code == 200
+    assert enabled.json()["enabled"] is True
+
+    updated = client.put("/api/customer-assistant/privacy/preferences/brand", json={"value": ["vivo"]}, headers=headers)
+    assert updated.status_code == 200
+    assert updated.json()["preferences"] == [{"key": "brand", "value": ["vivo"], "manual": True}]
+
+    deleted = client.delete("/api/customer-assistant/privacy/preferences/brand", headers=headers)
+    assert deleted.status_code == 200
+    assert deleted.json()["preferences"] == []
+    assert deleted.json()["ignored_keys"] == ["brand"]
+
+    restored = client.delete("/api/customer-assistant/privacy/ignored/brand", headers=headers)
+    assert restored.status_code == 200
+    assert restored.json()["ignored_keys"] == []
+
+    disabled = client.put("/api/customer-assistant/privacy", json={"enabled": False}, headers=headers)
+    assert disabled.status_code == 200
+    assert disabled.json() == {"enabled": False, "preferences": [], "ignored_keys": []}
+    assert [row.action for row in db_session.query(CustomerPreferenceAudit).order_by(CustomerPreferenceAudit.id)] == [
+        "PRIVACY_ENABLED", "MANUAL_SET", "PREFERENCE_DELETED", "PREFERENCE_RESTORED", "PRIVACY_DISABLED",
+    ]
+
+
+def test_customer_privacy_api_forbids_user_id_and_non_customer_access(client, db_session):
+    token = _token(client, db_session, "privacy-api-cs", Role.CS)
+    customer_token = _token(client, db_session, "privacy-api-customer-contract", Role.CUSTOMER)
+
+    assert client.get("/api/customer-assistant/privacy").status_code == 401
+    assert client.get("/api/customer-assistant/privacy", headers={"Authorization": f"Bearer {token}"}).status_code == 403
+    response = client.put(
+        "/api/customer-assistant/privacy",
+        json={"enabled": True, "user_id": 999},
+        headers={"Authorization": f"Bearer {customer_token}"},
+    )
+    assert response.status_code == 422

@@ -1,4 +1,6 @@
 """消费者助手接口的数据契约。"""
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -24,3 +26,27 @@ class CustomerAssistantReplyResponse(BaseModel):
     answer: str
     sources: list[CatalogEvidence]
     personalized: bool
+
+
+class CustomerPrivacyUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+
+
+class CustomerPreferenceUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value: Any
+
+
+class CustomerPreferenceResponse(BaseModel):
+    key: str
+    value: Any
+    manual: bool
+
+
+class CustomerPrivacyResponse(BaseModel):
+    enabled: bool
+    preferences: list[CustomerPreferenceResponse]
+    ignored_keys: list[str]

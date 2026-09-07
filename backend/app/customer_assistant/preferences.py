@@ -70,6 +70,19 @@ def ignored_preference_keys(session: Session, user_id: int) -> set[str]:
     return {row.preference_key for row in session.query(IgnoredPreference).filter_by(user_id=user_id)}
 
 
+def privacy_snapshot(session: Session, user_id: int) -> tuple[bool, list[tuple[str, Any, bool]], list[str]]:
+    setting = _locked_privacy_setting(session, user_id)
+    ignored = sorted(ignored_preference_keys(session, user_id))
+    if setting is None or not setting.enabled:
+        return False, [], ignored
+    rows = session.query(CustomerPreference).filter_by(user_id=user_id).order_by(CustomerPreference.preference_key).all()
+    preferences = [
+        (row.preference_key, row.manual_value if row.manual_value is not None else row.automatic_value or [], row.manual_value is not None)
+        for row in rows
+    ]
+    return True, preferences, ignored
+
+
 def set_manual_preference(session: Session, user_id: int, preference_key: str, value: Any) -> None:
     _validate_value(preference_key, value)
     setting = _locked_privacy_setting(session, user_id)
