@@ -17,6 +17,7 @@ class ProductStatus(str, enum.Enum):
 class OrderStatus(str, enum.Enum):
     CREATED = "CREATED"
     PAID_SIMULATED = "PAID_SIMULATED"
+    COMPLETED = "COMPLETED"
     RETURNING = "RETURNING"
     RETURN_COMPLETED = "RETURN_COMPLETED"
     CLOSED = "CLOSED"

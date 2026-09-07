@@ -1,4 +1,5 @@
 """地址、购物车和订单领域服务。"""
+from datetime import datetime
 import uuid
 from decimal import Decimal
 
@@ -111,6 +112,45 @@ def simulate_payment(db: Session, user_id: int, order_id: int) -> Order:
     raise ValueError("订单当前状态不可支付")
 
 
+def complete_order(db: Session, user_id: int, order_id: int) -> Order:
+    """将本用户的模拟支付订单原子地标记为已完成。"""
+    order = db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
+    if order is None:
+        raise LookupError("订单不存在")
+    if order.status == OrderStatus.COMPLETED:
+        return order
+    if order.status != OrderStatus.PAID_SIMULATED:
+        raise ValueError("订单当前状态不可完成")
+
+    changed = db.query(Order).filter(
+        Order.id == order_id,
+        Order.user_id == user_id,
+        Order.status == OrderStatus.PAID_SIMULATED,
+    ).update({Order.status: OrderStatus.COMPLETED}, synchronize_session=False)
+    if changed:
+        db.commit()
+        db.refresh(order)
+        return order
+
+    db.rollback()
+    current = db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
+    if current is None:
+        raise LookupError("订单不存在")
+    if current.status == OrderStatus.COMPLETED:
+        return current
+    raise ValueError("订单当前状态不可完成")
+
+
+def eligible_order_items(db: Session, user_id: int, since: datetime) -> list[OrderItem]:
+    """返回可用于消费者偏好的近期开单明细，不包含退款明细。"""
+    return (db.query(OrderItem).join(Order).filter(
+        Order.user_id == user_id,
+        Order.status.in_((OrderStatus.COMPLETED, OrderStatus.RETURNING)),
+        OrderItem.status == OrderItemStatus.NORMAL,
+        Order.created_at >= since,
+    ).order_by(OrderItem.id).all())
+
+
 def map_ticket_to_return_status(ticket_status, decision) -> ReturnStatus:
     """将后台工单状态确定性映射为用户退单状态。"""
     status = getattr(ticket_status, "value", ticket_status)
@@ -136,8 +176,8 @@ def create_return_request(db: Session, user_id: int, order_id: int, order_item_i
     order = db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
     if order is None:
         raise LookupError("订单不存在")
-    if order.status != OrderStatus.PAID_SIMULATED:
-        raise ValueError("仅已模拟支付订单可申请退单")
+    if order.status not in (OrderStatus.PAID_SIMULATED, OrderStatus.COMPLETED):
+        raise ValueError("仅已模拟支付或已完成订单可申请退单")
     item = db.query(OrderItem).filter(OrderItem.id == order_item_id, OrderItem.order_id == order_id).with_for_update().first()
     if item is None:
         raise LookupError("订单明细不存在")

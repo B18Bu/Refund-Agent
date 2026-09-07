@@ -7,7 +7,7 @@ from app.commerce_models import Address, CartItem, Order, OrderItem, Product, Pr
 from app.commerce_schemas import (AddressCreate, AddressOut, AddressUpdate, CartItemOut, CartItemUpsert,
                                    OrderCreate, OrderOut, OrderItemOut, ProductOut, ProductPage, ProductVariantOut,
                                    SimulatePaymentRequest, ReturnCreate, ReturnOut)
-from app.commerce_service import (create_order, set_default_address, simulate_payment,
+from app.commerce_service import (complete_order, create_order, set_default_address, simulate_payment,
                                    create_return_request, map_ticket_to_return_status)
 from app.deps import get_db, require_roles
 from app.models import Role, Ticket
@@ -222,6 +222,17 @@ def simulate_order_payment(order_id: int, body: SimulatePaymentRequest | None = 
     return _order_out(order)
 
 
+@router.post("/orders/{order_id}/complete", response_model=OrderOut)
+def complete_customer_order(order_id: int, user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
+    try:
+        order = complete_order(db, user.id, order_id)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc))
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+    return _order_out(order)
+
+
 @router.get("/orders", response_model=list[OrderOut])
 def list_orders(user=Depends(require_roles(Role.CUSTOMER)), db: Session = Depends(get_db)):
     rows = db.query(Order).options(joinedload(Order.items)).filter(Order.user_id == user.id).order_by(Order.id.desc()).all()
@@ -300,8 +311,8 @@ def create_order_return(order_id: int, body: ReturnCreate, response: Response,
     order = db.query(Order).filter(Order.id == order_id, Order.user_id == user.id).first()
     if order is None:
         raise HTTPException(404, "订单不存在")
-    if order.status.value != "PAID_SIMULATED":
-        raise HTTPException(409, "仅已模拟支付订单可申请退单")
+    if order.status.value not in ("PAID_SIMULATED", "COMPLETED"):
+        raise HTTPException(409, "仅已模拟支付或已完成订单可申请退单")
     item = db.query(OrderItem).filter(OrderItem.id == body.order_item_id,
                                       OrderItem.order_id == order_id).first()
     if item is None:

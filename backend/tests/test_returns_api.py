@@ -50,6 +50,21 @@ def test_return_requires_paid_order_and_idempotency(client, db_session):
     assert blocked.status_code == 409
 
 
+def test_return_allows_completed_order(client, db_session):
+    headers, user = _headers(db_session, "return-completed")
+    order, item = _paid_order(db_session, user)
+    db_session.query(Order).filter(Order.id == order.id).update({Order.status: OrderStatus.COMPLETED})
+    db_session.commit()
+
+    response = client.post(
+        f"/api/shop/orders/{order.id}/returns",
+        json={"order_item_id": item.id, "reason": "质量问题"},
+        headers={**headers, "X-Idempotency-Key": "completed-return"},
+    )
+
+    assert response.status_code == 201
+
+
 def test_return_validation_failure_does_not_poison_idempotency_key(client, db_session):
     headers, user = _headers(db_session, "return-retry")
     order, item = _paid_order(db_session, user)
