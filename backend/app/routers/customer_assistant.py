@@ -14,11 +14,30 @@ from app.customer_assistant.schemas import (
     CustomerPrivacyUpdateRequest,
 )
 from app.customer_assistant.service import CustomerAssistantService
+from app.customer_assistant.conversations import ConversationService
+from app.customer_assistant.models import CustomerSupportConversation, CustomerSupportMessage
 from app.deps import get_db, require_role
 from app.models import Role
 
 
 router = APIRouter(prefix="/api/customer-assistant", tags=["customer-assistant"])
+
+@router.post("/conversations")
+def create_conversation(user=Depends(require_role(Role.CUSTOMER)), db: Session = Depends(get_db)):
+    row = ConversationService(db).create_conversation(user.id)
+    return {"id": row.id, "status": row.status}
+
+@router.post("/conversations/{conversation_id}/messages")
+def send_message(conversation_id: int, body: CustomerAssistantReplyRequest, user=Depends(require_role(Role.CUSTOMER)), db: Session = Depends(get_db)):
+    try: result = ConversationService(db).reply(conversation_id, user.id, body.message)
+    except LookupError as error: raise HTTPException(404, str(error)) from error
+    return {"conversation_id": result.conversation_id, "answer": result.answer, "intent": result.intent, "evidence": result.evidence}
+
+@router.post("/conversations/{conversation_id}/escalations")
+def escalate(conversation_id: int, user=Depends(require_role(Role.CUSTOMER)), db: Session = Depends(get_db)):
+    try: row = ConversationService(db).escalate(conversation_id, user.id)
+    except LookupError as error: raise HTTPException(404, str(error)) from error
+    return {"case_id": row.id, "status": row.status}
 
 
 @router.post("/reply", response_model=CustomerAssistantReplyResponse)

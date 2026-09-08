@@ -1,131 +1,12 @@
-# 客诉舆情退赔决策系统 MVP —— Docker Compose 一键部署
-# 架构：FastAPI(生产者) + Redis Streams + Worker(消费者 + LangGraph Checkpointer)
-#        + PostgreSQL + React 前端(nginx) + 本地 PaddleOCR 推理
 services:
-  postgres:
-    image: pgvector/pgvector:pg15
-    # max_connections 提到 200：多 uvicorn worker × SQLAlchemy 连接池累加，默认 100 会在压测时被吃满
-    command: ["postgres", "-c", "max_connections=200"]
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: refund
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  # Redis：Streams 队列 / 幂等键 / 审批锁 / 挂起 Checkpointer（RedisJSON 序列化图上下文）
-  redis:
-    image: redis/redis-stack-server:latest
-    command: ["redis-stack-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  # 空库核心表必须先于所有引用 users/tickets 的迁移创建。
-  core-migrate:
-    image: pgvector/pgvector:pg15
-    environment:
-      PGHOST: postgres
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: refund
-    volumes:
-      - ../../backend/migrations/20260829_create_core_users_tickets.sql:/migrations/20260829_create_core_users_tickets.sql:ro
-    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/migrations/20260829_create_core_users_tickets.sql"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  # 显式执行数据库迁移；完成后 API 和 Worker 才允许启动
-  migrate:
-    image: pgvector/pgvector:pg15
-    environment:
-      PGHOST: postgres
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: refund
-    volumes:
-      - ../../backend/migrations/20260830_add_agent_evaluation_runs.sql:/migrations/20260830_add_agent_evaluation_runs.sql:ro
-    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/migrations/20260830_add_agent_evaluation_runs.sql"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      core-migrate:
-        condition: service_completed_successfully
-
-  # RAG 表只通过独立迁移创建，禁止由应用启动隐式建表。
-  rag-migrate:
-    image: pgvector/pgvector:pg15
-    environment:
-      PGHOST: postgres
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: refund
-    volumes:
-      - ../../backend/migrations/20260906_add_rag_knowledge.sql:/migrations/20260906_add_rag_knowledge.sql:ro
-    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/migrations/20260906_add_rag_knowledge.sql"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-
-  # 消费者偏好表只通过显式迁移创建，应用启动不得补建。
-  customer-assistant-migrate:
-    image: pgvector/pgvector:pg15
-    environment:
-      PGHOST: postgres
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: refund
-    volumes:
-      - ../../backend/migrations/20260907_add_customer_assistant.sql:/migrations/20260907_add_customer_assistant.sql:ro
-    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/migrations/20260907_add_customer_assistant.sql"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rag-migrate:
-        condition: service_completed_successfully
-
-  rag-embedding:
+  app:
     build:
-      context: ../../backend
-      target: rag-embedding
-    command: uvicorn rag_embedding_service:app --host 0.0.0.0 --port 8080
-    environment:
-      RAG_EMBEDDING_MODEL_DIR: /models/bge-small-zh-v1.5
-      RAG_EMBEDDING_DIMENSION: 512
-    volumes:
-      - type: bind
-        source: ${RAG_EMBEDDING_MODEL_HOST_DIR:-D:/作业/model/bge-small-zh-v1.5}
-        target: /models/bge-small-zh-v1.5
-        read_only: true
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  api:
-    build: ../../backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+      context: ../..
+      dockerfile: deploy/single-container/Dockerfile
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/refund
+      REDIS_URL: redis://127.0.0.1:6379/0?socket_timeout=10
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-secret-in-production}
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
@@ -136,112 +17,33 @@ services:
       GOLDEN_REPORT_PATH: /app/artifacts/golden-report.json
       TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}
       TELEMETRY_PROVIDER: ${TELEMETRY_PROVIDER:-noop}
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
-      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
       UPLOAD_DIR: /data/uploads
       OCR_DEVICE: cpu
       OCR_LANG: ch
       OCR_MODEL_DIR: /models/paddleocr
+      RAG_EMBEDDING_MODEL_DIR: /models/bge-small-zh-v1.5
+      RAG_EMBEDDING_DIMENSION: 512
       SCRAPE_SCHEDULE: ${SCRAPE_SCHEDULE:-0 3 * * *}
       SCRAPE_ALLOWED_SOURCES: ${SCRAPE_ALLOWED_SOURCES:-vivo,xiaomi,generic}
       SCRAPE_INTERVAL_SECONDS: ${SCRAPE_INTERVAL_SECONDS:-1}
+      CATALOG_REFRESH_SECONDS: ${CATALOG_REFRESH_SECONDS:-86400}
       SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-disabled}
-      CUBESANDBOX_API_URL: ${CUBESANDBOX_API_URL:-http://127.0.0.1:3000}
-      CUBESANDBOX_API_KEY: ${CUBESANDBOX_API_KEY:-}
-      CUBESANDBOX_TEMPLATE_ID: ${CUBESANDBOX_TEMPLATE_ID:-}
-      CUBESANDBOX_PROXY_NODE_IP: ${CUBESANDBOX_PROXY_NODE_IP:-}
-      CUBESANDBOX_PROXY_PORT: ${CUBESANDBOX_PROXY_PORT:-8080}
-    volumes:
-      - uploads_data:/data/uploads
-      - ../../artifacts:/app/artifacts:ro
-      - ../../evals:/app/evals:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-      rag-migrate:
-        condition: service_completed_successfully
-      customer-assistant-migrate:
-        condition: service_completed_successfully
     ports:
-      - "8001:8000"
-    restart: unless-stopped
-
-  worker:
-    build: ../../backend
-    command: python -m app.worker.consumer
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
-      REDIS_URL: redis://redis:6379/0
-      CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
-      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
-      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
-      PROMPT_VERSION: ${PROMPT_VERSION:-refund-v1}
-      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-false}
-      TELEMETRY_PROVIDER: ${TELEMETRY_PROVIDER:-noop}
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
-      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
-      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
-      UPLOAD_DIR: /data/uploads
-      OCR_DEVICE: cpu
-      OCR_LANG: ch
-      OCR_MODEL_DIR: /models/paddleocr
-      SCRAPE_SCHEDULE: ${SCRAPE_SCHEDULE:-0 3 * * *}
-      SCRAPE_ALLOWED_SOURCES: ${SCRAPE_ALLOWED_SOURCES:-vivo,xiaomi,generic}
-      SCRAPE_INTERVAL_SECONDS: ${SCRAPE_INTERVAL_SECONDS:-1}
-      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-disabled}
-      CUBESANDBOX_API_URL: ${CUBESANDBOX_API_URL:-http://127.0.0.1:3000}
-      CUBESANDBOX_API_KEY: ${CUBESANDBOX_API_KEY:-}
-      CUBESANDBOX_TEMPLATE_ID: ${CUBESANDBOX_TEMPLATE_ID:-}
-      CUBESANDBOX_PROXY_NODE_IP: ${CUBESANDBOX_PROXY_NODE_IP:-}
-      CUBESANDBOX_PROXY_PORT: ${CUBESANDBOX_PROXY_PORT:-8080}
+      - "80:80"
     volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - redis_data:/var/lib/redis
       - uploads_data:/data/uploads
+      - ../../artifacts:/app/artifacts
+      - ../../evals:/app/evals:ro
       - type: bind
         source: ${OCR_MODEL_HOST_DIR:-D:/作业/model/PaddleOCR}
         target: /models/paddleocr
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-      customer-assistant-migrate:
-        condition: service_completed_successfully
-    restart: unless-stopped
-
-  catalog-worker:
-    build: ../../backend
-    command: python -m app.worker.catalog_consumer
-    environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/refund
-      REDIS_URL: redis://redis:6379/0
-      SCRAPE_ALLOWED_SOURCES: ${SCRAPE_ALLOWED_SOURCES:-vivo,xiaomi}
-      SCRAPE_INTERVAL_SECONDS: ${SCRAPE_INTERVAL_SECONDS:-1}
-      CATALOG_REFRESH_SECONDS: ${CATALOG_REFRESH_SECONDS:-86400}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  frontend:
-    build: ../../frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - api
+        read_only: true
+      - type: bind
+        source: ${RAG_EMBEDDING_MODEL_HOST_DIR:-D:/作业/model/bge-small-zh-v1.5}
+        target: /models/bge-small-zh-v1.5
+        read_only: true
     restart: unless-stopped
 
 volumes:

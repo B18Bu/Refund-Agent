@@ -49,7 +49,13 @@ class CustomerAssistantService:
         self._generate = generate or _generate_answer
         self._critic = critic or CriticEngine()
 
-    def reply(self, user: User, message: str, context: dict | None = None) -> CustomerAssistantReply:
+    def reply(
+        self,
+        user: User,
+        message: str,
+        context: dict | None = None,
+        history: list[dict] | None = None,
+    ) -> CustomerAssistantReply:
         masked_message, _entities = DLP.mask(message or "")
         try:
             self._critic.block_or_raise(masked_message, settings.SECURITY_INJECTION_THRESHOLD)
@@ -72,6 +78,11 @@ class CustomerAssistantService:
         preferences = self._allowed_preferences(user.id) if recommendation else {}
         material = {
             "question": masked_message,
+            "history": [
+                {"sender": str(item.get("sender", "")), "content": str(item.get("content_masked", ""))}
+                for item in (history or [])[-8:]
+                if isinstance(item, dict)
+            ],
             "evidence": [
                 {"source_url": chunk.source_url, "content": content}
                 for chunk, content in safe_evidence

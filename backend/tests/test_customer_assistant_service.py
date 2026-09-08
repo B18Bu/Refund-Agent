@@ -295,6 +295,27 @@ def test_reply_sources_include_crawl_time(db_session):
     assert result.sources[0].crawled_at == crawled_at.isoformat()
 
 
+def test_reply_passes_masked_conversation_history_to_generation_material(db_session):
+    from app.customer_assistant.service import CustomerAssistantService
+
+    user = User(username="assistant-history", password_hash="unused", role=Role.CUSTOMER)
+    db_session.add(user)
+    db_session.commit()
+    _catalog_chunk(db_session, content="vivo X100 手机，适合拍照", source_url="https://example.test/x100")
+    generate = Mock(return_value="资料已找到")
+
+    CustomerAssistantService(db_session, generate=generate).reply(
+        user,
+        "X100 和上一款夜拍怎么样？",
+        {},
+        history=[{"sender": "CUSTOMER", "content_masked": "推荐拍照手机，电话138****0000"}],
+    )
+
+    assert generate.call_args.args[0]["history"] == [
+        {"sender": "CUSTOMER", "content": "推荐拍照手机，电话138****0000"}
+    ]
+
+
 def test_privacy_disabled_does_not_send_preferences_and_has_privacy_audit(db_session):
     from app.customer_assistant.models import CustomerPreferenceAudit
     from app.customer_assistant.preferences import disable_privacy, enable_privacy, set_manual_preference

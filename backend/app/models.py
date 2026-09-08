@@ -113,6 +113,9 @@ from app.customer_assistant.models import (  # noqa: E402,F401
     CustomerPreferenceAudit,
     CustomerCatalogChunk,
     CustomerPrivacySetting,
+    CustomerSupportCase,
+    CustomerSupportConversation,
+    CustomerSupportMessage,
     IgnoredPreference,
 )
 from app.commerce_models import (  # noqa: E402,F401

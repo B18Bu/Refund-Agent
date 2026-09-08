@@ -19,5 +19,7 @@ describe('CustomerShell', () => {
     expect(screen.getByRole('search', { name: '搜索商城商品' })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: '商城主导航' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '全部商品分类' })).toHaveAttribute('href', '/shop')
+    expect(screen.queryByRole('link', { name: '智能客服' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '打开智能客服' })).toBeInTheDocument()
   })
 })

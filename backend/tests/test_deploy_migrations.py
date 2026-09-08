@@ -10,17 +10,17 @@ from sqlalchemy.exc import OperationalError
 
 
 COMPOSE = Path(__file__).parents[2] / "deploy" / "compose" / "docker-compose.yml"
+ENTRYPOINT = Path(__file__).parents[2] / "deploy" / "single-container" / "entrypoint.sh"
 CUSTOMER_ASSISTANT_MIGRATION = Path(__file__).parents[1] / "migrations" / "20260907_add_customer_assistant.sql"
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/refund")
 
 
-def test_customer_assistant_migration_is_in_compose_chain_before_api_and_worker():
-    compose = COMPOSE.read_text(encoding="utf-8")
+def test_customer_assistant_migration_runs_in_single_container_before_supervisor():
+    entrypoint = ENTRYPOINT.read_text(encoding="utf-8")
 
-    assert "customer-assistant-migrate:" in compose
-    assert "20260907_add_customer_assistant.sql:/migrations/20260907_add_customer_assistant.sql:ro" in compose
-    assert '"-f", "/migrations/20260907_add_customer_assistant.sql"' in compose
-    assert "customer-assistant-migrate:\n        condition: service_completed_successfully" in compose
+    migration = "20260907_add_customer_assistant.sql"
+    assert migration in entrypoint
+    assert entrypoint.index(migration) < entrypoint.index("exec supervisord")
 
 
 def test_customer_assistant_migration_adds_completed_to_a_legacy_postgres_order_status_enum():

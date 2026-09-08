@@ -19,7 +19,6 @@ import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import Returns from './pages/Returns'
 import ServiceRefunds from './pages/ServiceRefunds'
-import CustomerAssistant from './pages/CustomerAssistant'
 import PrivacyPreferences from './pages/PrivacyPreferences'
 
 function RequireSession() {
@@ -57,7 +56,7 @@ export default function App() {
             <Route path="/shop/orders" element={<Orders />} />
             <Route path="/shop/orders/:id" element={<OrderDetail />} />
             <Route path="/shop/returns" element={<Returns />} />
-            <Route path="/shop/assistant" element={<CustomerAssistant />} />
+            <Route path="/shop/assistant" element={<Navigate to="/shop" replace />} />
             <Route path="/shop/privacy" element={<PrivacyPreferences />} />
           </Route>
           <Route element={<StaffOnly><BackofficeShell /></StaffOnly>}>

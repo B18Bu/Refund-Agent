@@ -109,3 +109,46 @@ class CustomerCatalogChunk(Base):
     content_hash: Mapped[str] = mapped_column(String(64), index=True)
     embedding: Mapped[list[float]] = mapped_column(CustomerCatalogVector())
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class CustomerSupportConversation(Base):
+    __tablename__ = "customer_support_conversations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    status: Mapped[str] = mapped_column(String(16), default="OPEN", index=True)
+    title: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CustomerSupportMessage(Base):
+    __tablename__ = "customer_support_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(ForeignKey("customer_support_conversations.id"), index=True)
+    sender: Mapped[str] = mapped_column(String(16))
+    content_masked: Mapped[str] = mapped_column(Text)
+    intent: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class CustomerSupportCase(Base):
+    __tablename__ = "customer_support_cases"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("customer_support_conversations.id"), unique=True, index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    status: Mapped[str] = mapped_column(String(16), default="OPEN", index=True)
+    trigger_reason: Mapped[str] = mapped_column(String(32))
+    summary_masked: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_to: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
