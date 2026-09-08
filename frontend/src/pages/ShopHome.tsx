@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Empty, Input, Select, Spin, Tag } from 'antd'
-import { FileTextOutlined, SafetyCertificateOutlined, ShoppingCartOutlined } from '@ant-design/icons'
 import { Link, useSearchParams } from 'react-router-dom'
 import client from '../api/client'
 import type { Product } from '../types/shop'
@@ -54,23 +53,12 @@ export default function ShopHome() {
   const featuredProduct = items.find((product) => product.image_url) || items[0]
 
   return <main className="shop-home page-wrap">
-    <div className="shop-portal">
-      <nav className="shop-category-menu" aria-label="全部商品分类">
-        <h2>商品分类</h2>
-        {categories.map((item) => <button key={item.label} type="button" onClick={() => setKeyword(item.keywords[0])}><b>{item.label}</b><span aria-hidden="true">官方目录</span></button>)}
-        {!loading && categories.length === 0 && <span className="shop-category-menu__empty">目录加载后显示分类</span>}
-      </nav>
-      <section className="shop-hero" aria-label="商城主会场">
-        <div className="shop-hero__content"><p className="shop-eyebrow">vivo · 小米官方目录</p><h1>发现值得入手的科技好物</h1><p>手机与实用配件，价格和可售规格均以品牌官方目录为准。</p><Link className="shop-hero__action" to={featuredProduct ? `/shop/products/${featuredProduct.id}` : '/shop'}>{featuredProduct ? '查看主推商品' : '浏览官方目录'}</Link></div>
-        {featuredProduct?.image_url && <img className="shop-hero__image" src={featuredProduct.image_url} alt={`${featuredProduct.brand} ${featuredProduct.name}`} />}
-      </section>
-      <aside className="shop-service-panel" aria-label="用户服务">
-        <div className="shop-service-panel__welcome"><span aria-hidden="true">M</span><div><b>欢迎来到品牌优选商城</b><small>官方目录每日更新</small></div></div>
-        <div className="shop-service-panel__links"><Link to="/shop/orders"><FileTextOutlined />我的订单</Link><Link to="/shop/returns"><SafetyCertificateOutlined />退款售后</Link><Link to="/shop/cart"><ShoppingCartOutlined />购物车</Link></div>
-        <div className="shop-service-panel__notice"><h2>商城快报</h2><p>商品价格和可售规格以实时目录为准。</p><p>订单与售后进度可在对应页面查询。</p></div>
-      </aside>
-    </div>
-    <section className="shop-service-strip" aria-label="商城服务说明"><span><b>真实目录</b>vivo 与小米官方来源</span><span><b>价格透明</b>服务端实时价格</span><span><b>订单可查</b>下单后可查看订单状态</span><span><b>售后入口</b>可提交退款售后申请</span></section>
+    <section className="shop-hero" aria-label="商城主会场">
+      <div className="shop-hero__content"><p className="shop-eyebrow">官方目录，每日更新</p><h1>快速找到适合你的设备</h1><p>商品价格、规格与可售状态均来自品牌官方目录。</p><Link className="shop-hero__action" to={featuredProduct ? `/shop/products/${featuredProduct.id}` : '/shop'}>{featuredProduct ? '查看精选商品' : '浏览官方目录'}</Link></div>
+      {featuredProduct?.image_url && <img className="shop-hero__image" src={featuredProduct.image_url} alt={`${featuredProduct.brand} ${featuredProduct.name}`} />}
+    </section>
+    <nav className="shop-category-nav" aria-label="商品快捷分类"><span>快速分类</span>{categories.map((item) => <button key={item.label} type="button" onClick={() => setKeyword(item.keywords[0])}>{item.label}</button>)}{!loading && categories.length === 0 && <span className="shop-category-nav__empty">目录加载后显示分类</span>}</nav>
+    <section className="shop-service-strip" aria-label="商城服务承诺"><span><b>官方来源</b>品牌官方目录</span><span><b>规格透明</b>展示可售规格</span><span><b>订单可查</b>下单后可追踪状态</span><span><b>售后承接</b>退款售后有入口</span></section>
     <section className="shop-filters" aria-label="商品筛选">
       <Input aria-label="搜索商品" placeholder="搜索型号或商品名称" value={keyword} onChange={(event) => setKeyword(event.target.value)} onPressEnter={load} />
       <Select aria-label="按品牌筛选" allowClear placeholder="全部品牌" value={brand} onChange={setBrand} options={brands.map((item) => ({ label: item, value: item }))} />
