@@ -1,309 +1,189 @@
-# 客诉舆情退赔决策系统（MVP）
+# 智能电商售后与风控决策平台
 
-> 多 Agent 协同的客诉退赔辅助决策系统：客服提交工单后，系统自动执行「凭证识别（本地 OCR）→ 风险分析 →
-> 舆情分析 → 金额决策」链路，对低风险工单自动退赔，对高风险/不确定工单挂起转主管人工审批，审批后从断点恢复。
+面向消费电子商品交易与售后处理的多 Agent 平台。系统将官方商品目录、顾客自助购物、智能客服、订单退款、确定性风控决策、主管审批与质量评测纳入同一业务闭环，并以权限隔离、幂等控制和可审计证据保障关键动作可追溯。
 
----
+> **重要边界**：`AUTO_REFUNDED` 表示系统完成了自动退赔决策记录，不会调用真实支付退款接口。商城支付为模拟支付；真实资金处理必须通过独立的支付集成、幂等与补偿流程交付。
 
-## 目录
+## 系统能力
 
-1. [核心特性](#核心特性)
-2. [系统架构](#系统架构)
-3. [技术栈](#技术栈)
-4. [目录结构](#目录结构)
-5. [快速开始](#快速开始)
-6. [本地算法模型](#本地算法模型)
-7. [LLM 接入](#llm-接入)
-8. [测试与验收](#测试与验收)
-9. [Docker 部署与压测](#docker-部署与压测)
-10. [三方对齐 P0 实现清单](#三方对齐-p0-实现清单)
+- **电商交易闭环**：官方目录商品同步、搜索与筛选、商品规格、收货地址、购物车、下单、模拟支付、订单查询和退单申请。
+- **顾客智能服务**：基于已发布商品、本人订单和售后规则提供带来源依据的对话式服务；支持脱敏上下文、人工转接及个性化偏好的显式授权、查看和删除。
+- **退赔辅助决策**：本地 OCR、注入检测与 DLP、风险/舆情分析、确定性规则和 LangGraph 人工中断恢复组成审慎决策链路。
+- **主管工作台**：待审工单、订单与售后服务单、流程轨迹、实时监控、政策依据检索（RAG）、评测中心和安全治理看板。
+- **质量与治理**：Golden Dataset、编排与 Token 对比评测、红蓝测试、DLP 审计、故障安全降级、Redis 幂等键和审批锁。
 
----
+## 三类账号与职责
 
-## 核心特性
+| 账号角色 | 主要工作 | 数据与权限边界 |
+| --- | --- | --- |
+| 顾客（`customer`） | 浏览商品、管理地址和购物车、下单、模拟支付、查看本人订单与退单、使用智能客服和隐私偏好控制 | 只能访问自己的地址、订单、退单、会话与偏好；不能访问运营、评测和审批数据 |
+| 客服（`cs`） | 在服务订单中心处理订单和退单的业务承接 | 进入后台服务订单/退单视图；不拥有主管审批、评测、安全治理和政策检索权限 |
+| 主管（`sv`） | 审批高风险或不确定退赔、查看决策轨迹和监控、执行质量复核 | 可访问审批、工单详情、评测、安全治理与政策依据；审批仍受 Redis 锁和数据库条件更新保护 |
 
-- **多 Agent 自动决策**：Intake → OCR（本地 PaddleOCR）→ 风控 → 舆情 → 金额决策的完整链路。
-- **三态流转 + 挂起恢复**：`RUNNING → SUSPENDED → COMPLETED`；挂起用 LangGraph 原生 `interrupt()` + Redis Checkpointer，恢复用 `Command(resume=...)`，**禁止手工 pickle**。
-- **先保守、后自动（宁挂勿错退）**：OCR 低置信度、LLM 超时/非法输出一律转人工，绝不自动放行。
-- **防资损**：建单幂等（SET NX + DB 兜底）+ 审批分布式锁（**随机 token + Lua 比较后删除**）+ DB 条件更新。
-- **失败语义可审计**：Worker 不可恢复异常落库 `COMPLETED + FAILED + error_code` 后再 XACK；checkpoint 缺失 → `FAILED + CHECKPOINT_NOT_FOUND`。
-- **角色化控制台与可观测**：客服仅可查看自己创建的申请；主管默认进入待处理优先的实时监控，可处理审批并查看数据大屏。监控页每 5 秒轮询更新异常、待审批和处理中订单。
+演示账号由部署环境初始化，仅用于本地联调。生产环境必须禁用或重置演示账号，并采用受控的身份管理、JWT 密钥和密码策略。
 
-## 系统架构
+## 业务架构
 
 ```text
-┌───────────────────────────── React + TypeScript + AntD + ECharts ──────────────────────────────┐
-│  登录 / 角色化导航 / 工单创建 / 图片上传 / Agent 流转图 / 审批面板 / 实时监控 / 流程总览 / 大屏 │
-└──────────────────────────────────────┬────────────────────────────────────────────────────────┘
-                                       │ HTTP：JWT、X-Idempotency-Key、SSE
-┌──────────────────────────────────────▼────────────────────────────────────────────────────────┐
-│  FastAPI API：鉴权 + RBAC / 工单与文件 API / 幂等 / 审批锁（token+Lua）/ SSE 事件             │
-└──────────────┬──────────────────────────────┬──────────────────────────────────────────────────┘
-               │ SQL                          │ XADD（Redis Streams）
-┌──────────────▼──────────────┐   ┌───────────▼──────────────────────────────────────────────────┐
-│  PostgreSQL（业务事实）      │   │  Redis：Streams 队列 / 幂等键 / 审批锁 / Checkpointer         │
-│  users / tickets /           │   └───────────┬──────────────────────────────────────────────────┘
-│  approvals / agent_traces    │               │ XREADGROUP
-└──────────────────────────────┘   ┌───────────▼──────────────────────────────────────────────────┐
-                                   │  Worker（可横向扩容）：LangGraph 决策图                       │
-                                   │  Intake → OCR → 风控 → 舆情 → 决策 →（人工审批 interrupt）   │
-                                   └───────┬──────────────────┬───────────────────────────────────┘
-                                           │ OCR（本地推理）   │ LLM（OpenAI 兼容，DeepSeek/Mock）
-                                      PaddleOCR（自动下载模型） DeepSeek 或本地 Mock/Stub
+顾客 Web
+  商品目录 -> 购物车/订单 -> 模拟支付 -> 退款申请
+       |                         |
+       +-> 智能客服（证据检索、隐私授权、人工转接）
+
+客服 Web ---------------------> 服务订单与退单中心
+主管 Web ---------------------> 审批 / 监控 / 评测 / 安全治理 / 政策依据
+                                      |
+React + TypeScript  <->  FastAPI（JWT、RBAC、幂等、文件校验、SSE）
+                                      |
+                 PostgreSQL <-> Redis Streams / 锁 / Checkpointer
+                                      |
+             Worker：OCR -> 安全网关 -> 意图 -> 风险/舆情 -> 确定性决策
+                                      |
+                    自动决策记录 或 LangGraph interrupt 后主管审批恢复
 ```
 
-## 技术栈
+### 退赔决策原则
 
-| 层次 | 选型 |
+决策规则由代码确定性执行，不由 LLM 覆盖。金额、OCR 置信度、欺诈分和舆情均满足低风险条件时才可记录为自动决策；任一条件不满足、模型超时、结果不合法或安全规则命中时，系统保守地转人工或标记失败。上传的 OCR 文本、投诉内容和提示词材料均视为不可信输入。
+
+## 技术组成
+
+| 层级 | 实现 |
 | --- | --- |
-| 后端 | Python 3.12 + FastAPI + SQLAlchemy 2.0 + Pydantic v2 |
-| 决策流 | LangGraph + Checkpointer（默认 PostgreSQL；`CHECKPOINTER_BACKEND=redis` 可切 Redis，需 RedisJSON） |
-| 队列 | Redis Streams（XADD / XREADGROUP / XACK） |
-| OCR | 本地 PaddleOCR 2.x（`paddlepaddle==2.6.2` + `paddleocr==2.9.1`） |
-| LLM | OpenAI 兼容适配器：DeepSeek（`deepseek-chat`）或本地 Mock |
-| 认证 | JWT（bcrypt 密码哈希，2 小时） |
-| 前端 | React 18 + TypeScript + Vite + AntD + ECharts |
-| 部署压测 | Docker Compose + Locust |
+| 前端 | React 18、TypeScript、Vite、Ant Design、ECharts |
+| API 与持久化 | FastAPI、SQLAlchemy 2、PostgreSQL（含 pgvector） |
+| 异步与决策 | Redis Streams、LangGraph、PostgreSQL/Redis Checkpointer |
+| 智能能力 | 本地 PaddleOCR、OpenAI 兼容 LLM 适配器、固定维度本地 embedding、RAG |
+| 安全 | JWT、bcrypt、RBAC、上传魔数校验、DLP、注入检测、Redis 幂等和审批锁 |
+| 质量工程 | Pytest、Vitest、Golden Dataset、红蓝测试、场景 E2E、Docker Compose |
 
-## 目录结构
+### 技术选型依据
 
-```
+| 领域 | 选型 | 采用原因 |
+| --- | --- | --- |
+| Web 应用 | React + TypeScript + Vite | 提供类型约束、快速构建和面向顾客/运营双界面的组件化交付能力 |
+| 业务 API | FastAPI + Pydantic | 以类型化契约承载认证、订单、售后和评测接口，便于验证与文档化 |
+| 业务数据 | PostgreSQL + SQLAlchemy | 保存订单、工单、审批、评测和审计事实，支持事务与显式迁移治理 |
+| 消息与协调 | Redis Streams + LangGraph | 将长耗时决策与 HTTP 请求解耦，并支持人工审批中断、恢复和状态追踪 |
+| 检索 | pgvector + 本地 embedding 服务 | 为主管提供有来源、可审计的政策原文检索，不以生成内容替代业务规则 |
+| 安全控制 | JWT、RBAC、DLP、幂等键与审批锁 | 将身份、数据边界、敏感信息和重复操作控制在服务端，降低越权与重复处理风险 |
+
+## 模型与智能能力方案
+
+| 能力 | 模型或组件 | 职责 | 可靠性与安全边界 |
+| --- | --- | --- | --- |
+| 凭证识别 | PaddleOCR 2.x | 在本地识别退单图片中的文本并输出置信度 | 模型需显式配置；低置信、空结果或异常一律进入保守处理，不能自动放行 |
+| 风险与舆情理解 | OpenAI 兼容 LLM 适配器（可接 DeepSeek 或 Mock） | 生成结构化风险、舆情和客服语义结果 | LLM 不决定金额、退款或审批；超时和非法结果使用安全默认值并转人工 |
+| 政策依据检索 | `bge-small-zh-v1.5` + pgvector | 为主管检索政策、规则和评测材料中的相关原文片段 | 仅返回带来源的证据；不可用或无结果不影响审批主链路 |
+| 顾客智能客服 | 检索增强服务 + LLM 适配器 | 基于已发布商品、本人订单和售后规则回答咨询 | 上下文经过权限过滤与脱敏；执行型或需人工的问题创建独立客服工单 |
+| 离线与测试降级 | 本地 Mock / Stub | 支持无外部密钥的开发、测试和回归验证 | 仅用于开发与测试，不得伪装为生产模型输出 |
+
+模型位置、密钥、服务地址和启用开关均由环境变量注入，不在 README、镜像或代码中写入特定人员或设备的路径信息。
+
+## 项目结构
+
+```text
 backend/
-├── app/
-│   ├── config.py              # 配置（DB/Redis/JWT/LLM/OCR/阈值/Streams）
-│   ├── db.py / models.py      # SQLAlchemy 引擎与模型（含 error_code）
-│   ├── security.py / deps.py  # JWT + bcrypt + RBAC
-│   ├── idempotency.py         # 幂等键（SET NX）
-│   ├── locks.py               # 审批分布式锁（随机 token + Lua 比较删除）
-│   ├── storage.py             # 上传文件落盘（MIME/魔数校验 + sha256）
-│   ├── agents/                # LangGraph 决策流（state/nodes/graph/ocr/llm/decision_rules）
-│   ├── routers/               # auth / tickets（含 SSE）/ files
-│   ├── worker/consumer.py     # Redis Streams 消费者 + Checkpointer + FAILED 语义
-│   └── main.py                # 入口（建表 + 种子用户 + healthz/readyz）
-├── tests/                     # 36 项单测（决策规则/JWT/幂等/锁/图/API/角色权限）
-├── requirements.txt           # 核心依赖
-├── requirements-ocr.txt       # OCR 重型依赖（单独安装）
-└── Dockerfile
+  app/
+    agents/                 # OCR、安全网关、风险、舆情与确定性决策图
+    commerce_*.py           # 商品、购物车、订单与退单领域模型及服务
+    customer_assistant/     # 顾客智能客服、偏好与人工转接
+    evaluation/             # 评测记录、指标聚合与运行器
+    rag/                    # 主管政策依据检索与审计
+    security/               # DLP、注入检测与治理摘要
+    routers/                # auth、shop、tickets、evaluations 等 API
+    worker/                 # 工单消费与商品目录刷新
+  migrations/               # 评测、RAG、客服等显式数据库迁移
+  tests/
 frontend/
-├── src/
-│   ├── pages/                 # Login / Dashboard / MyTickets / Monitor / ProcessOverview / TicketDetail / Screen
-│   ├── components/            # AppShell / StatusLegend / FlowCanvas（ECharts 流转图）/ ApprovePanel
-│   ├── types/auth.ts          # JWT 角色解析（仅用于前端导航体验）
-│   └── api/client.ts          # axios 封装 + token 注入
-├── Dockerfile / nginx.conf
-scripts/
-├── scenario_e2e.py            # 两大核心场景 + 并发审批联调脚本
-├── test_unit_standalone.py    # 单元测试独立脚本（不依赖 pytest）
-└── test_interface_idempotency.py  # 接口防重测试独立脚本
-deploy/compose/docker-compose.yml # postgres + redis + api + worker + frontend
-scripts/loadtest/locustfile.py    # 压测脚本
+  src/pages/                # 商城、订单、售后、审批、评测、安全治理页面
+  src/components/           # 顾客与后台壳层、工单与知识依据组件
+evals/                      # Golden、意图和评测样本
+scripts/                    # Golden、红蓝、场景、商城与客服 E2E 脚本
+deploy/
+  compose/                  # 单容器生产式 Compose 编排
+  single-container/         # API、Worker、数据服务与 Nginx 镜像入口
+docs/                       # 架构指南、验收报告、专项设计与运行证据
 ```
 
 ## 快速开始
 
-### 本地开发（后端）
+### 前置条件
 
-```bash
-cd backend
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-pip install -r requirements-ocr.txt      # PaddleOCR 本地推理
-# 启动 PostgreSQL + Redis（Streams/幂等/锁；Checkpointer 默认走 PostgreSQL）
-docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d postgres redis
-export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/refund
-export REDIS_URL=redis://localhost:6379/0
-export LLM_PROVIDER=mock                 # 无 DeepSeek 密钥时用本地 Mock
-uvicorn app.main:app --port 8000
-# 另开终端启动 Worker
-python -m app.worker.consumer
-```
+- Docker Desktop 与 Docker Compose
+- 已准备 PaddleOCR 2.x 识别模型
+- 已准备 `bge-small-zh-v1.5` embedding 模型
+- Node.js 20+（仅前端本地开发需要）
+- Python 3.11+（仅后端本地开发与测试需要）
 
-### 前端
+根目录 `.env` 用于覆盖运行配置。生产部署至少应设置强 JWT 密钥、数据库凭据、模型配置和所需的 LLM 配置；禁止提交真实密钥、设备路径或个人环境信息。
 
-```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:5173（代理 /api → :8001）
-```
+### 单容器部署
 
-### 演示账号（密码统一 `secret123`）
-
-| 用户名 | 密码 | 角色 |
-| --- | --- | --- |
-| `cs1` | `secret123` | 客服（提交工单） |
-| `sv1` | `secret123` | 主管（审批） |
-| `customer_service_01` | `secret123` | 客服（specs 命名） |
-| `supervisor_01` | `secret123` | 主管（specs 命名） |
-
-> 任一命名均可登录；`specs/quickstart.md` 的登录示例使用 `supervisor_01`。
->
-> - 客服登录后默认进入“我的申请”，后端仅返回其本人创建的工单；
-> - 主管登录后默认进入“实时监控”，可查看全部最近 100 条工单并审批待处理订单。
-
-### 登录后页面
-
-| 页面 | 路径 | 适用角色 | 说明 |
-| --- | --- | --- | --- |
-| 我的申请 | `/my-tickets` | 客服 | 查看自己创建的退款申请并新建申请。 |
-| 实时监控 | `/monitor` | 主管 | 每 5 秒刷新异常、待审批、处理中订单及优先处理队列。 |
-| 退款工作台 | `/workspace` | 主管 | 查看全部最近 100 条退款工单。 |
-| 退款流程总览 | `/process` | 全部 | 说明提交、OCR、风控、舆情、决策与处理结果的标准链路。 |
-| 数据大屏 | `/screen` | 主管 | 查看退款统计和聚合图表。 |
-
-## 本地算法模型
-
-- **OCR**：本地 PaddleOCR 推理引擎，首次调用自动下载 PP-OCRv4 中文模型（约 20MB），之后完全离线推理。
-  验证：识别「退款申请单」「订单号20260817」，平均置信度 0.9982。
-- **LLM/风控**：OpenAI 兼容客户端适配器，`LLM_PROVIDER=deepseek` 接 DeepSeek API；`LLM_PROVIDER=mock` 走本地确定性 Stub（含欺诈关键词检测、舆情分级），单测与无密钥环境可用。
-
-> **注意**：PaddleOCR 3.x + paddlepaddle 3.x 在 Windows 上存在 onednn/PIR 执行器缺陷，本项目锁定已验证的 2.x 组合。
-
-## LLM 接入
-
-```bash
-export LLM_PROVIDER=deepseek
-export DEEPSEEK_API_KEY=sk-xxx
-export DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
-export DEEPSEEK_MODEL=deepseek-chat
-```
-
-LLM 异常兜底：超时/非法输出 → 重试 1 次 → 保守兜底（Fraud=100 / Sentiment=HIGH）→ 决策层强制人工。
-
-## 测试与验收
-
-```bash
-cd backend
-pytest tests/ -v        # 36 passed，1 项真实 Redis 锁测试在无 Redis 环境跳过
-```
-
-| 测试 | 覆盖 |
-| --- | --- |
-| `test_decision_rules` | 决策规则全部边界（金额=300/置信度=0.60/欺诈=50/舆情非 LOW） |
-| `test_locks` | 锁互斥 + **旧 token 释放不误删新锁（竞态修复）** + Lua 路径断言 |
-| `test_graph` | 自动退款 / interrupt 挂起 / Command(resume) 恢复 / REJECT |
-| `test_*_api` | 登录 / 建单幂等 / RBAC 越权 / 工单角色隔离 / 审批恢复 / 健康检查 |
-
-### 独立运行脚本使用指南（不依赖 pytest）
-
-三个脚本均**直接在终端运行**（无需 pytest 框架），但需注意：
-- 必须使用项目 venv 的 Python（`.\.venv\Scripts\python.exe`），脚本依赖 fakeredis/PIL 等已装入 venv；
-- 必须在**项目根目录**下执行；
-- 脚本 ②③ 需要后端已启动，脚本 ① 零依赖、最快。
-
-| 脚本 | 用途 | 前置 | 一句话运行 |
-| --- | --- | --- | --- |
-| `scripts/test_unit_standalone.py` | 核心单元逻辑：决策规则 / 认证安全 / 幂等键 / 分布式锁 | 无 | `.\.venv\Scripts\python.exe scripts\test_unit_standalone.py` |
-| `scripts/test_interface_idempotency.py` | 接口 `X-Idempotency-Key` 防重：同 Key 重放 / 不同 Key / 并发 | 后端已启动 | `.\.venv\Scripts\python.exe scripts\test_interface_idempotency.py [BASE_URL]` |
-| `scripts/scenario_e2e.py` | 两大核心场景 + 并发审批联调（S1 人工审批 / S2 自动退款 / LOCK） | 后端 + worker | `.\.venv\Scripts\python.exe scripts\scenario_e2e.py [BASE_URL]` |
-
-#### ① 环境准备（一次性）
+该部署镜像包含 PostgreSQL、Redis、API、Worker、目录刷新任务、RAG embedding 服务和 Nginx，对外暴露 `80` 端口。
 
 ```powershell
-cd "D:\Claude Code\舆情多Agent"
-python -m venv .venv                                    # 已存在可跳过
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements-ocr.txt   # PaddleOCR 本地推理
+make build
+make up
+make ps
 ```
 
-启动后端（脚本 ②③ 需要；脚本 ① 不需要）：
+访问 `http://localhost`。停止服务使用：
 
 ```powershell
-docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d --build
-                                      # 一键启动：postgres / redis / api / worker / frontend
-curl http://localhost:8001/healthz # Docker 后端返回 ok 即就绪；本地 Uvicorn 仍使用 8000
+make down
 ```
 
-#### ② 脚本①：单元测试（最快，无需后端）
+通过 `OCR_MODEL_HOST_DIR` 和 `RAG_EMBEDDING_MODEL_HOST_DIR` 为部署环境显式配置模型挂载位置。模型缺失时，OCR/RAG 相关能力必须显式不可用，不能回退到宿主机执行。
 
-验证 4 组核心逻辑，不访问任何服务，秒级出结果：
+### 本地前端开发
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\test_unit_standalone.py
+npm --prefix frontend install
+npm --prefix frontend run dev
 ```
 
-预期输出（4 组全 PASS）：
-
-```
-===== 核心单元逻辑独立测试（不依赖 pytest） =====
-[1/4] 决策规则 decide()        → [PASS]
-[2/4] 认证安全 security        → [PASS]
-[3/4] 幂等键 idempotency       → [PASS]
-[4/4] 分布式锁 locks           → [PASS]
-===== 结果：4 passed, 0 failed =====
-```
-
-#### ③ 脚本②：接口防重（需后端）
-
-向真实 API 提交工单验证 `X-Idempotency-Key` 防重，共 4 个用例，**会在系统里创建少量测试工单**（金额 128 的即为测试数据）：
+### 验证
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\test_interface_idempotency.py
-# 后端不在默认 8000 端口时，追加地址参数：
-.\.venv\Scripts\python.exe scripts\test_interface_idempotency.py http://localhost:8001
+make check
+make frontend-build
+python scripts/evaluate_golden.py
+python scripts/run_red_blue_test.py
 ```
 
-预期输出（4 个用例全 PASS）：
+`make check` 执行 Python 编译与后端测试；`make frontend-build` 执行 TypeScript 检查和前端生产构建。评测和安全脚本会将报告输出到 `artifacts/`，应作为发布证据归档。
 
-```
-===== 接口防重（X-Idempotency-Key）测试 @ http://localhost:8001 =====
-[login] cs1 OK
-[T1] 同 Key 重放 → 同一工单        [PASS] 证据: Key=it-xxx-a → ticket_id=10414（重放返回同单，金额保持 128.0）
-[T2] 不同 Key → 不同工单           [PASS] 证据: Key=it-xxx-b1 → 10415, Key=it-xxx-b2 → 10416
-[T3] 无 Key → 不同工单             [PASS] 证据: 无 Key 两次 → 10417 / 10418
-[T4] 并发不同 Key → 互不相同        [PASS] 证据: 并发 5 个不同 Key → 全部 200，工单互不相同 [10419, ...]
-===== 结果：4 passed, 0 failed =====
-```
+## 评测与发布门禁
 
-#### ④ 脚本③：两大场景联调（需后端 + worker）
+系统将评测作为质量证据，而非业务路由：
 
-跑两个核心业务场景 + 并发审批竞态，全程真实 HTTP + 真实本地 OCR，约 40 秒：
+- **Golden Dataset**：覆盖低风险、金额边界、OCR 异常、欺诈、舆情、模型失败、幂等和安全输入等场景。
+- **编排与成本**：记录确定性意图过滤与 LLM 路由的样本覆盖、Token 对比及异常兜底状态。
+- **安全治理**：红蓝测试、DLP 审计和脱敏运行事件只供主管查看，Telemetry 失败不得阻塞审批主流程。
+- **人工复核**：主管的改判、审批意见、工单轨迹与命中文档来源构成审计链路；RAG 只提供原文依据，不改变退赔结果。
 
-```powershell
-.\.venv\Scripts\python.exe scripts\scenario_e2e.py
-```
+发布前至少完成后端测试、前端构建、Golden 评测、安全测试和关键 E2E，并保存对应日志。`128` 元订单仅在全部低风险条件满足时自动决策，否则必须给出原因并转人工。
 
-预期输出：
+## 生产安全边界
 
-```
-[login] OK
-[S1] <tid> 挂起 [OK]  OCR置信度=0.99x  OCR='破损商品退款申请 金额350.00元'
-[S1] <tid> APPROVED [OK]
-[S2] <tid> AUTO_REFUNDED [OK]  (OCR置信度=0.99x)
-[LOCK] 并发审批 {409:5, 200:1} [OK]（1 成功 + 5 冲突）
-=== 全部场景通过 ===
-```
+- 所有接口由 JWT 与后端 RBAC 保护；前端路由限制仅用于体验，不能替代后端鉴权。
+- 建单与退单要求幂等键，审批采用随机 token 的 Redis 锁与数据库条件更新，避免重复处理。
+- PostgreSQL 是业务事实来源；Redis 负责队列、锁、幂等与 Checkpointer，不承担最终业务裁决。
+- 评测、RAG 与客服偏好相关表通过显式迁移交付，应用启动不应静默修改生产数据库结构。
+- CubeSandbox 未安装或配置不完整时必须显式失败，禁止回退到宿主机执行任意代码。详见 [CubeSandbox 配置说明](docs/guides/cubesandbox.md)。
 
-#### ⑤ 常见问题排查
+## 文档索引
 
-| 现象 | 原因 | 解决 |
-| --- | --- | --- |
-| 中文输出乱码 | Windows 控制台默认 GBK 编码 | 运行前先执行 `$env:PYTHONIOENCODING="utf-8"`，或 `chcp 65001` |
-| `ModuleNotFoundError: fakeredis` 等 | 用错了 Python（系统 Python 而非 venv） | 必须用 `.\.venv\Scripts\python.exe` |
-| 登录失败 / `Connection refused` | 后端未启动 | `docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d api worker` 后再跑 |
-| 后端端口不是 8000 | 环境差异 | 脚本追加 `http://IP:端口` 参数 |
-| 脚本 ②③ 后页面多出工单 | 脚本创建的测试数据 | 属正常现象，金额 128 / 350 的即测试工单 |
+- [总体架构与治理方案](docs/guides/architecture.md)
+- [产品验收报告](docs/acceptance/2026-09-07-product-acceptance-report.md)
+- [电商平台设计](docs/superpowers/specs/2026-09-03-ecommerce-platform-design.md)
+- [顾客智能客服设计](docs/superpowers/specs/2026-09-07-consumer-intelligent-customer-service-design.md)
+- [主管政策依据 RAG 设计](docs/superpowers/specs/2026-09-06-supervisor-rag-design.md)
+- [部署验证报告](docs/evidence/deploy-report.md)
+- [周期评测报告](docs/evidence/periodic-eval-report.md)
+- [安全审计报告](docs/evidence/security-audit-report.md)
 
-## Docker 部署与压测
+## 开发约定
 
-```bash
-docker compose --env-file .env -f deploy/compose/docker-compose.yml up -d --build
-                                      # 一键启动全栈
-# 前端 http://localhost:80    Docker API http://localhost:8001/docs
-locust -f scripts/loadtest/locustfile.py --headless -u 100 -r 20 -t 60s --host http://localhost:8001
-```
-
-> Checkpointer 默认走 PostgreSQL（`CHECKPOINTER_BACKEND=postgres`），零额外依赖。
-> 若改用 Redis Checkpointer（`CHECKPOINTER_BACKEND=redis`），需 Redis 带 RedisJSON 模块（如 `redis/redis-stack-server`）。
-
-## 三方对齐 P0 实现清单
-
-| 项 | 要求 | 实现 |
-| --- | --- | --- |
-| A-01 | 锁释放随机 token + Lua 比较后删除，禁无条件 DEL | `locks.py`：`secrets.token_urlsafe(32)` + `redis.eval` Lua 比较删除，真实 Redis 验证通过 |
-| A-02 | Decision 含 `FAILED`，Ticket 含 `error_code/error_message` | `models.py` 已补齐 |
-| A-03 | Worker 不可恢复异常先落 `FAILED + error_code` 再 XACK | `consumer.py` `mark_failed()` 后 `xack` |
-| A-04 | `decide` 统一 4 参（含 `ocr_confidence`） | `decision_rules.decide(amount, ocr_confidence, fraud_score, sentiment)` |
-| A-05 | SSE + 轮询降级 | 前端 `EventSource` + 断线 2s 轮询 |
-| A-06 | 开发 create_all / 生产 Alembic（记录口径） | 开发 `Base.metadata.create_all` |
-| A-07 | checkpoint 缺失兜底 `FAILED + CHECKPOINT_NOT_FOUND` | `consumer.py` 恢复路径校验 |
+修改退赔、OCR、审批、RBAC、幂等、评测或沙箱前，请先阅读 [AGENTS.md](AGENTS.md)。该文件定义了确定性决策、安全隔离、异步失败处理、测试和验收要求。
