@@ -47,6 +47,10 @@ def validate_catalog_snapshot(snapshot: dict[str, list[ProductDTO]]) -> CatalogR
         return CatalogResult(CatalogStatus.INITIALIZATION_FAILED, "PRICE_BAND_NOT_MET")
     if not any(p > 3000 for p in prices):
         return CatalogResult(CatalogStatus.INITIALIZATION_FAILED, "PRICE_BAND_NOT_MET")
+    if sum(p.category == "PHONE" for p in all_items) < 12:
+        return CatalogResult(CatalogStatus.INITIALIZATION_FAILED, "PHONE_COVERAGE_NOT_MET")
+    if sum(p.category == "PERIPHERAL" for p in all_items) < 20:
+        return CatalogResult(CatalogStatus.INITIALIZATION_FAILED, "PERIPHERAL_COVERAGE_NOT_MET")
     return CatalogResult(CatalogStatus.READY)
 
 

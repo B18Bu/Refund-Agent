@@ -28,6 +28,27 @@ def test_guest_product_list_filters_and_paginates(client, db_session):
     assert body["items"][0]["brand"] == "vivo"
 
 
+def test_guest_product_list_filters_by_fixed_category_and_returns_category(client, db_session):
+    db_session.add(CatalogState(id=1, status="READY"))
+    phone = Product(brand="vivo", name="X100 Pro", category="PHONE", status=ProductStatus.ACTIVE)
+    peripheral = Product(brand="vivo", name="TWS 5", category="PERIPHERAL", status=ProductStatus.ACTIVE)
+    db_session.add_all([phone, peripheral])
+    db_session.flush()
+    db_session.add_all([
+        ProductVariant(product_id=phone.id, sku="vivo-x100-category", variant_name="标准版", spec_json={}, price=3999),
+        ProductVariant(product_id=peripheral.id, sku="vivo-tws-category", variant_name="标准版", spec_json={}, price=399),
+    ])
+    db_session.commit()
+
+    response = client.get("/api/shop/products", params={"category": "PHONE"})
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["name"] == "X100 Pro"
+    assert response.json()["items"][0]["category"] == "PHONE"
+    assert client.get("/api/shop/products", params={"category": "INVALID"}).status_code == 422
+
+
 def test_product_detail_404_and_brands(client, db_session):
     _seed_products(db_session)
     assert client.get("/api/shop/products/99999").status_code == 404

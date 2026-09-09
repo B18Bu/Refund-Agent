@@ -57,6 +57,7 @@ class Product(Base):
     source_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_site: Mapped[str | None] = mapped_column(String(64), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    category: Mapped[str] = mapped_column(String(16), index=True, default="OTHER")
     status: Mapped[ProductStatus] = mapped_column(Enum(ProductStatus), default=ProductStatus.ACTIVE)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

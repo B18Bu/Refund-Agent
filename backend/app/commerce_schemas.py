@@ -1,5 +1,6 @@
 """电商商品及目录响应模型。"""
 from decimal import Decimal
+from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
@@ -15,6 +16,7 @@ class ProductDTO(BaseModel):
     variant_name: str = "标准版"
     spec_json: dict = Field(default_factory=dict)
     external_id: str | None = None
+    category: Literal["PHONE", "PERIPHERAL", "OTHER"] = "OTHER"
 
     @field_validator("brand", "sku", "name", mode="before")
     @classmethod
@@ -50,6 +52,7 @@ class ProductOut(BaseModel):
     source_url: str | None = None
     source_site: str | None = None
     image_url: str | None = None
+    category: Literal["PHONE", "PERIPHERAL", "OTHER"]
     status: str
     variants: list[ProductVariantOut] = Field(default_factory=list)
 

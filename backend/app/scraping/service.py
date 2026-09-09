@@ -83,7 +83,7 @@ class ScrapeService:
             product = Product(brand=dto.brand, name=dto.name, model=dto.model,
                               description=dto.description, source_url=source_url,
                               source_site=source_site, image_url=str(dto.image_url) if dto.image_url else None,
-                              status=ProductStatus.ACTIVE, last_synced_at=datetime.utcnow())
+                              category=dto.category, status=ProductStatus.ACTIVE, last_synced_at=datetime.utcnow())
             self.db.add(product)
             self.db.flush()
             source = ProductSource(product_id=product.id, source_site=source_site,
@@ -92,6 +92,7 @@ class ScrapeService:
             self.db.add(source)
         product.brand, product.name, product.model = dto.brand, dto.name, dto.model
         product.description = dto.description
+        product.category = dto.category
         product.source_url, product.source_site = source_url, source_site
         product.image_url = str(dto.image_url) if dto.image_url else None
         product.status, product.last_synced_at = ProductStatus.ACTIVE, datetime.utcnow()

@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from app import models  # noqa: F401
 from app.commerce_schemas import ProductDTO
 from app.commerce_models import Product, ProductStatus, ScrapeRun, ScrapeRunStatus
-from app.scraping.adapters import VivoAdapter, XiaomiAdapter
+from app.scraping.adapters import VivoAdapter, XiaomiAdapter, classify_category
 from app.scraping.service import ScrapeService
 
 
@@ -81,6 +81,12 @@ def test_xiaomi_adapter_parses_official_shop_cards():
 
 def test_xiaomi_source_uses_official_accessory_search_page():
     assert XiaomiAdapter.source_url == "https://www.mi.com/shop/search?keyword=%E8%80%B3%E6%9C%BA"
+
+
+def test_category_classification_keeps_phone_models_and_peripherals_in_their_sections():
+    assert classify_category("手机", "REDMI K100 Pro") == "PHONE"
+    assert classify_category("耳机", "vivo TWS 5") == "PERIPHERAL"
+    assert classify_category(None, "网易 山茶植萃香氛洗衣液") == "OTHER"
 
 
 def test_xiaomi_adapter_does_not_combine_fields_from_multiple_cards():

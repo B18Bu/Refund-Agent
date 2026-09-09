@@ -4,6 +4,8 @@ import { FormEvent, useState } from 'react'
 import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { getSessionUser } from '../types/auth'
 import CustomerAssistant from '../pages/CustomerAssistant'
+import brandLogoHorizontal from '../assets/brand/brand-logo-horizontal.svg'
+import brandMark from '../assets/brand/brand-mark.svg'
 
 const { Header, Content } = Layout
 
@@ -26,8 +28,8 @@ export default function CustomerShell() {
       <Header className="customer-header">
         <div className="customer-search-row">
           <Link className="customer-brand" to="/shop" aria-label="返回商城首页">
-            <span className="customer-brand__mark" aria-hidden="true">M</span>
-            <span><b>品牌优选</b><small>BRAND SELECT MALL</small></span>
+            <img className="customer-brand__logo" src={brandLogoHorizontal} alt="品牌优选 Logo" />
+            <img className="customer-brand__mark" src={brandMark} alt="" aria-hidden="true" />
           </Link>
           <form className="customer-search" role="search" aria-label="搜索商城商品" onSubmit={search}>
             <Input aria-label="搜索商城商品" placeholder="搜索商品、型号或配件" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} suffix={<SearchOutlined aria-hidden="true" />} />
@@ -41,7 +43,7 @@ export default function CustomerShell() {
         </div>
         <nav className="customer-main-nav" aria-label="商城主导航">
           <Link className="customer-main-nav__categories" to="/shop"><MenuOutlined aria-hidden="true" />全部商品分类</Link>
-          <Link to="/shop">商城首页</Link><Link to="/shop?keyword=手机">手机数码</Link><Link to="/shop?keyword=耳机">耳机配件</Link><Link to="/shop/returns"><SafetyCertificateOutlined aria-hidden="true" />售后服务</Link><Link to="/shop/orders"><CustomerServiceOutlined aria-hidden="true" />订单服务</Link>
+          <Link to="/shop">商城首页</Link><Link to="/shop?category=PHONE">手机数码</Link><Link to="/shop?category=PERIPHERAL">耳机配件</Link><Link to="/shop/returns"><SafetyCertificateOutlined aria-hidden="true" />售后服务</Link><Link to="/shop/orders"><CustomerServiceOutlined aria-hidden="true" />订单服务</Link>
         </nav>
       </Header>
       <Content className="customer-content"><Outlet /></Content>

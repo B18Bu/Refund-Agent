@@ -13,6 +13,7 @@ import {
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import { getSessionUser } from '../types/auth'
+import brandMarkReverse from '../assets/brand/brand-mark-reverse.svg'
 
 const { Header, Sider, Content } = Layout
 
@@ -76,7 +77,8 @@ export default function AppShell() {
     <Layout className="app-shell">
       <Sider className="app-sider" collapsible collapsed={collapsed} collapsedWidth={64} onCollapse={setCollapsed} theme="dark" breakpoint="lg">
         <div className="app-brand" style={{ paddingInline: collapsed ? 8 : 18 }}>
-          退赔决策控制台
+          <img src={brandMarkReverse} alt="退赔决策控制台 Logo" />
+          <span>退赔决策控制台</span>
         </div>
         <Menu className="app-nav" aria-label="主导航" theme="dark" mode="inline" selectedKeys={currentKey ? [currentKey] : []} items={items} onClick={({ key }) => nav(key)} />
       </Sider>

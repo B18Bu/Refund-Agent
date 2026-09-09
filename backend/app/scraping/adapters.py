@@ -11,6 +11,18 @@ SOURCE_URLS = {
 }
 SOURCE_CONFIG = SOURCE_URLS
 
+PHONE_TERMS = ("手机", "phone", "redmi k", "redmi note", "redmi 17", "xiaomi 17", "xiaomi 18", "vivo x", "iqoo", "fold")
+PERIPHERAL_TERMS = ("耳机", "充电", "路由", "数据线", "线材", "保护", "手机壳", "手机膜", "支架", "鼠标", "键盘", "网卡", "散热", "存储", "u盘", "插座", "配件", "影像", "电源", "headphone", "buds", "router", "charger", "cable", "tws")
+
+
+def classify_category(official_category: str | None, name: str) -> str:
+    searchable = f"{official_category or ''} {name}".lower()
+    if any(term in searchable for term in PERIPHERAL_TERMS):
+        return "PERIPHERAL"
+    if any(term in searchable for term in PHONE_TERMS):
+        return "PHONE"
+    return "OTHER"
+
 
 class _JsonAdapter:
     source_site = "generic"
@@ -38,6 +50,7 @@ class _JsonAdapter:
             # 来源 URL 是代码配置，不信任页面内容或调用方传入值。
             item["source_url"] = self.source_url
             item.setdefault("external_id", item.get("sku"))
+            item["category"] = classify_category(item.get("category"), str(item.get("name", "")))
             result.append(ProductDTO.model_validate(item))
         return result
 
@@ -54,6 +67,8 @@ class VivoAdapter(_JsonAdapter):
             for category in navigation:
                 if not isinstance(category, dict):
                     continue
+                first_category = category.get("firstCategory")
+                official_category = first_category.get("name") if isinstance(first_category, dict) else None
                 for row in category.get("commoditySpus") or []:
                     if not isinstance(row, dict):
                         continue
@@ -68,6 +83,7 @@ class VivoAdapter(_JsonAdapter):
                         image_url=image_url if isinstance(image_url, str) and image_url.startswith("https://") else None,
                         variant_name=row["name"],
                         external_id=str(row.get("spuId") or row["skuId"]),
+                        category=classify_category(official_category, row["name"]),
                     ))
             if result:
                 return result
@@ -90,6 +106,7 @@ class VivoAdapter(_JsonAdapter):
                 image_url=image_url if isinstance(image_url, str) and image_url.startswith("https://") else None,
                 variant_name=row["skuName"],
                 external_id=str(row.get("id") or row["skuCode"]),
+                category=classify_category(None, row["skuName"]),
             ))
         return result
 
@@ -123,6 +140,7 @@ class XiaomiAdapter(_JsonAdapter):
                 image_url=unescape(image.group("image")),
                 variant_name=unescape(re.sub(r"<[^>]+>", "", title.group("name")).strip()),
                 external_id=product.group("sku"),
+                category=classify_category(None, unescape(re.sub(r"<[^>]+>", "", title.group("name")).strip())),
             ))
         if not rows:
             raise ValueError("无法解析小米商城商品数据")

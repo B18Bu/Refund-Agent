@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button, Empty, Input, Select, Spin, Tag } from 'antd'
 import { Link, useSearchParams } from 'react-router-dom'
 import client from '../api/client'
-import type { Product } from '../types/shop'
+import type { Product, ProductCategory } from '../types/shop'
 
 const priceBands = [
   { key: 'all', label: '全部商品' },
@@ -11,13 +11,14 @@ const priceBands = [
   { key: 'high', label: '3000.01 元以上', min_price: 3000.01 },
 ] as const
 
-const categoryRules = [
-  { label: '手机', keywords: ['手机', 'phone'] },
-  { label: '耳机', keywords: ['耳机', 'buds', 'headphone'] },
-  { label: '充电', keywords: ['充电', '电源', 'charger'] },
-  { label: '数据线', keywords: ['数据线', '线'] },
-  { label: '其他配件', keywords: ['路由', '保护', '壳', '膜', '支架'] },
+const categoryRules: { label: string; category: ProductCategory }[] = [
+  { label: '手机', category: 'PHONE' },
+  { label: '外设', category: 'PERIPHERAL' },
 ]
+
+const categoryFromSearch = (value: string | null): ProductCategory | undefined => (
+  value === 'PHONE' || value === 'PERIPHERAL' || value === 'OTHER' ? value : undefined
+)
 
 const lowestPrice = (product: Product) => Math.min(...product.variants.filter((item) => item.available).map((item) => item.price))
 
@@ -26,14 +27,15 @@ export default function ShopHome() {
   const [items, setItems] = useState<Product[]>([])
   const [brands, setBrands] = useState<string[]>([])
   const [keyword, setKeyword] = useState(() => searchParams.get('keyword') || '')
+  const [category, setCategory] = useState<ProductCategory | undefined>(() => categoryFromSearch(searchParams.get('category')))
   const [brand, setBrand] = useState<string>()
   const [band, setBand] = useState<(typeof priceBands)[number]['key']>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<'catalog' | 'network' | null>(null)
   const params = useMemo(() => {
     const activeBand = priceBands.find((item) => item.key === band)
-    return { keyword: keyword || undefined, brand, min_price: activeBand && 'min_price' in activeBand ? activeBand.min_price : undefined, max_price: activeBand && 'max_price' in activeBand ? activeBand.max_price : undefined, page_size: 100 }
-  }, [band, brand, keyword])
+    return { keyword: keyword || undefined, brand, category, min_price: activeBand && 'min_price' in activeBand ? activeBand.min_price : undefined, max_price: activeBand && 'max_price' in activeBand ? activeBand.max_price : undefined, page_size: 100 }
+  }, [band, brand, category, keyword])
   const load = () => {
     setLoading(true)
     setError(null)
@@ -44,11 +46,10 @@ export default function ShopHome() {
   }
   useEffect(() => { client.get('/shop/brands').then((response) => setBrands(response.data)).catch(() => undefined) }, [])
   useEffect(() => { load() }, [params])
-  useEffect(() => { setKeyword(searchParams.get('keyword') || '') }, [searchParams])
-  const categories = categoryRules.filter(({ keywords }) => items.some((product) => {
-    const searchable = `${product.name} ${product.model || ''} ${product.description || ''}`.toLowerCase()
-    return keywords.some((item) => searchable.includes(item))
-  }))
+  useEffect(() => {
+    setKeyword(searchParams.get('keyword') || '')
+    setCategory(categoryFromSearch(searchParams.get('category')))
+  }, [searchParams])
 
   const featuredProduct = items.find((product) => product.image_url) || items[0]
 
@@ -57,7 +58,7 @@ export default function ShopHome() {
       <div className="shop-hero__content"><p className="shop-eyebrow">官方目录，每日更新</p><h1>快速找到适合你的设备</h1><p>商品价格、规格与可售状态均来自品牌官方目录。</p><Link className="shop-hero__action" to={featuredProduct ? `/shop/products/${featuredProduct.id}` : '/shop'}>{featuredProduct ? '查看精选商品' : '浏览官方目录'}</Link></div>
       {featuredProduct?.image_url && <img className="shop-hero__image" src={featuredProduct.image_url} alt={`${featuredProduct.brand} ${featuredProduct.name}`} />}
     </section>
-    <nav className="shop-category-nav" aria-label="商品快捷分类"><span>快速分类</span>{categories.map((item) => <button key={item.label} type="button" onClick={() => setKeyword(item.keywords[0])}>{item.label}</button>)}{!loading && categories.length === 0 && <span className="shop-category-nav__empty">目录加载后显示分类</span>}</nav>
+    <nav className="shop-category-nav" aria-label="商品快捷分类"><span>快速分类</span>{categoryRules.map((item) => <button key={item.label} className={category === item.category ? 'is-active' : ''} type="button" onClick={() => setCategory(item.category)}>{item.label}</button>)}</nav>
     <section className="shop-service-strip" aria-label="商城服务承诺"><span><b>官方来源</b>品牌官方目录</span><span><b>规格透明</b>展示可售规格</span><span><b>订单可查</b>下单后可追踪状态</span><span><b>售后承接</b>退款售后有入口</span></section>
     <section className="shop-filters" aria-label="商品筛选">
       <Input aria-label="搜索商品" placeholder="搜索型号或商品名称" value={keyword} onChange={(event) => setKeyword(event.target.value)} onPressEnter={load} />
@@ -70,7 +71,7 @@ export default function ShopHome() {
         {priceBands.map((item) => <button key={item.key} className={band === item.key ? 'is-active' : ''} type="button" role="tab" aria-selected={band === item.key} onClick={() => setBand(item.key)}>{item.label}</button>)}
       </div>
     </section>
-    {loading ? <div className="shop-loading" aria-live="polite"><Spin size="large" /><span>正在加载最新商品目录</span></div> : error === 'catalog' ? <Empty className="shop-empty" description="商品目录正在初始化，请稍后刷新"><Button type="primary" onClick={load}>重新检查</Button></Empty> : error ? <Empty className="shop-empty" description="商品加载失败，请检查网络后重试"><Button onClick={load}>重新加载</Button></Empty> : items.length === 0 ? <Empty className="shop-empty" description="没有找到符合条件的商品"><Button onClick={() => { setKeyword(''); setBrand(undefined); setBand('all') }}>清空筛选</Button></Empty> : <section className="shop-products shop-product-grid" aria-label="商品列表">{items.map((product) => <article className="product-card" key={product.id}>
+    {loading ? <div className="shop-loading" aria-live="polite"><Spin size="large" /><span>正在加载最新商品目录</span></div> : error === 'catalog' ? <Empty className="shop-empty" description="商品目录正在初始化，请稍后刷新"><Button type="primary" onClick={load}>重新检查</Button></Empty> : error ? <Empty className="shop-empty" description="商品加载失败，请检查网络后重试"><Button onClick={load}>重新加载</Button></Empty> : items.length === 0 ? <Empty className="shop-empty" description="没有找到符合条件的商品"><Button onClick={() => { setKeyword(''); setBrand(undefined); setCategory(undefined); setBand('all') }}>清空筛选</Button></Empty> : <section className="shop-products shop-product-grid" aria-label="商品列表">{items.map((product) => <article className="product-card" key={product.id}>
       <Link className="product-card__image" to={`/shop/products/${product.id}`} aria-label={`查看 ${product.name} 详情`}><img src={product.image_url || '/placeholder-product.svg'} alt={`${product.brand} ${product.name}`} loading="lazy" /></Link>
       <div className="product-card__body"><Tag>{product.brand}</Tag><h3>{product.name}</h3><p>{product.model || product.description || '品牌官方精选商品'}</p><strong>¥{lowestPrice(product).toFixed(2)}</strong><span>起</span><Link to={`/shop/products/${product.id}`}>查看商品</Link></div>
     </article>)}</section>}

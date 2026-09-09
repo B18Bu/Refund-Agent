@@ -16,10 +16,10 @@ from app.commerce_schemas import ProductDTO
 from app.scraping.service import ScrapeService
 
 
-def _product(brand: str, index: int, price: float) -> ProductDTO:
+def _product(brand: str, index: int, price: float, category: str = "OTHER") -> ProductDTO:
     return ProductDTO(
         brand=brand, sku=f"{brand}-{index}", name=f"{brand} 商品 {index}",
-        price=price, source_url=f"https://www.{brand}.com/products/{index}",
+        price=price, source_url=f"https://www.{brand}.com/products/{index}", category=category,
     )
 
 
@@ -27,8 +27,8 @@ def _snapshot(oppo_count: int = 20):
     vivo_prices = [299, 999, 3999] + [1299] * 17
     oppo_prices = [199, 1599, 4999] + [1999] * (oppo_count - 3)
     return {
-        "vivo": [_product("vivo", index, price) for index, price in enumerate(vivo_prices)],
-        "xiaomi": [_product("xiaomi", index, price) for index, price in enumerate(oppo_prices)],
+        "vivo": [_product("vivo", index, price, "PHONE" if index < 6 else "PERIPHERAL" if index < 16 else "OTHER") for index, price in enumerate(vivo_prices)],
+        "xiaomi": [_product("xiaomi", index, price, "PHONE" if index < 6 else "PERIPHERAL" if index < 16 else "OTHER") for index, price in enumerate(oppo_prices)],
     }
 
 
@@ -48,6 +48,31 @@ def test_snapshot_requires_low_price_sku_per_brand():
     result = validate_catalog_snapshot(snapshot)
     assert result.status == CatalogStatus.INITIALIZATION_FAILED
     assert result.error_code == "LOW_PRICE_SKU_NOT_MET"
+
+
+def test_snapshot_requires_phone_and_peripheral_coverage():
+    snapshot = _snapshot()
+    for brand, rows in snapshot.items():
+        snapshot[brand] = [_product(brand, index, float(row.price), "OTHER") for index, row in enumerate(rows)]
+
+    result = validate_catalog_snapshot(snapshot)
+
+    assert result.status == CatalogStatus.INITIALIZATION_FAILED
+    assert result.error_code == "PHONE_COVERAGE_NOT_MET"
+
+
+def test_snapshot_rejects_insufficient_peripheral_coverage_after_phone_gate():
+    snapshot = _snapshot()
+    for brand, rows in snapshot.items():
+        snapshot[brand] = [
+            _product(brand, index, float(row.price), "PHONE" if index < 6 else "OTHER")
+            for index, row in enumerate(rows)
+        ]
+
+    result = validate_catalog_snapshot(snapshot)
+
+    assert result.status == CatalogStatus.INITIALIZATION_FAILED
+    assert result.error_code == "PERIPHERAL_COVERAGE_NOT_MET"
 
 
 def test_failed_refresh_keeps_last_successful_catalog(db_session):

@@ -1,5 +1,6 @@
 """用户端商品目录只读接口。"""
 import os
+from typing import Literal
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Response, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
@@ -34,6 +35,7 @@ def _product(p: Product) -> ProductOut:
     return ProductOut(id=p.id, brand=p.brand, name=p.name, model=p.model,
                       description=p.description, source_url=p.source_url,
                       source_site=p.source_site, image_url=p.image_url,
+                      category=p.category,
                       status=p.status.value if hasattr(p.status, "value") else str(p.status),
                       variants=[_variant(v) for v in p.variants])
 
@@ -44,6 +46,7 @@ def list_products(
     page_size: int = Query(20, ge=1, le=100),
     keyword: str | None = None,
     brand: str | None = None,
+    category: Literal["PHONE", "PERIPHERAL", "OTHER"] | None = None,
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
     db: Session = Depends(get_db),
@@ -55,6 +58,8 @@ def list_products(
         query = query.filter((Product.name.ilike(term)) | (Product.model.ilike(term)))
     if brand:
         query = query.filter(func.lower(Product.brand) == brand.strip().lower())
+    if category:
+        query = query.filter(Product.category == category)
     if min_price is not None or max_price is not None:
         query = query.join(ProductVariant).filter(ProductVariant.available.is_(True))
         if min_price is not None:
