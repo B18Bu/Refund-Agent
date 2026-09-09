@@ -1,4 +1,4 @@
-import { CustomerServiceOutlined, FileTextOutlined, LogoutOutlined, MenuOutlined, SearchOutlined, SafetyCertificateOutlined, ShoppingCartOutlined } from '@ant-design/icons'
+import { CustomerServiceOutlined, LogoutOutlined, MenuOutlined, SearchOutlined, SafetyCertificateOutlined, ShoppingCartOutlined, UserOutlined } from '@ant-design/icons'
 import { Badge, Button, Input, Layout } from 'antd'
 import { FormEvent, useState } from 'react'
 import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
@@ -34,7 +34,7 @@ export default function CustomerShell() {
             <Button htmlType="submit" type="primary">搜索</Button>
           </form>
           <div className="customer-header__actions">
-            <Link to="/shop/orders"><FileTextOutlined aria-hidden="true" />我的订单</Link>
+            <Link to="/shop/account"><UserOutlined aria-hidden="true" />我的</Link>
             <Badge size="small" offset={[-2, 3]}><Link to="/shop/cart"><ShoppingCartOutlined aria-hidden="true" />购物车</Link></Badge>
             <button type="button" onClick={logout}><LogoutOutlined aria-hidden="true" />退出登录</button>
           </div>

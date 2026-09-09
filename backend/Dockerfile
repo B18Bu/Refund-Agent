@@ -9,9 +9,9 @@ WORKDIR /app
 
 # 索引服务只加载已挂载的本地模型。固定 CPU wheel，避免解析 CUDA 和 OCR 依赖。
 COPY requirements-rag-embedding.txt ./
-RUN pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools \
- && pip install --no-cache-dir --retries 10 --timeout 300 --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.tuna.tsinghua.edu.cn/simple "torch==2.6.0+cpu" \
- && pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements-rag-embedding.txt
+RUN pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.org/simple setuptools \
+ && pip install --no-cache-dir --retries 10 --timeout 300 --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple "torch==2.6.0+cpu" \
+ && pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.org/simple -r requirements-rag-embedding.txt
 
 COPY app ./app
 COPY rag_embedding_service.py ./
@@ -36,9 +36,9 @@ RUN apt-get update \
 
 # 先装基础依赖（含 OCR 依赖，本地推理引擎）
 COPY requirements.txt requirements-ocr.txt ./
-RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple setuptools \
- && pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt \
- && pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements-ocr.txt
+RUN pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.org/simple setuptools \
+ && pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.org/simple -r requirements.txt \
+ && pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.org/simple -r requirements-ocr.txt
 
 # PaddleOCR 2.x 会将 NumPy 降到 1.x；同步固定兼容的 ml-dtypes，避免 pip check 冲突。
 RUN pip install --no-cache-dir --retries 10 --timeout 300 -i https://pypi.tuna.tsinghua.edu.cn/simple "ml-dtypes<0.6"
