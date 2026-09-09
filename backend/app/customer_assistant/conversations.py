@@ -60,7 +60,10 @@ class ConversationService:
         else:
             result = CustomerAssistantService(self._session).reply(customer, masked, {}, history=history)
             answer = result.answer
-            evidence = {"sources": [source.source_url for source in result.sources]}
+            evidence = {"products": [
+                {"product_id": source.product_id, "source_url": source.source_url}
+                for source in result.sources
+            ]}
         self._session.add(CustomerSupportMessage(
             conversation_id=conversation.id,
             sender="ASSISTANT",

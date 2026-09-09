@@ -33,6 +33,7 @@ class CustomerAssistantReply:
 
 @dataclass(frozen=True)
 class CatalogEvidence:
+    product_id: int
     source_url: str
     crawled_at: str | None
 
@@ -66,6 +67,7 @@ class CustomerAssistantService:
         evidence = self._search_catalog(masked_message, context)
         sources = [
             CatalogEvidence(
+                product_id=chunk.product_id,
                 source_url=chunk.source_url,
                 crawled_at=chunk.crawled_at.isoformat() if chunk.crawled_at else None,
             )

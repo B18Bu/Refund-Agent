@@ -30,7 +30,7 @@ def test_reply_uses_masked_question_and_catalog_sources_for_recommendation(db_se
     user = User(username="assistant-user", password_hash="unused", role=Role.CUSTOMER)
     db_session.add(user)
     db_session.commit()
-    _catalog_chunk(db_session, content="vivo X100 手机，适合拍照", source_url="https://example.test/x100")
+    product_id = _catalog_chunk(db_session, content="vivo X100 手机，适合拍照", source_url="https://example.test/x100")
     generate = Mock(return_value="推荐 vivo X100。")
 
     result = CustomerAssistantService(db_session, generate=generate).reply(
@@ -38,6 +38,7 @@ def test_reply_uses_masked_question_and_catalog_sources_for_recommendation(db_se
     )
 
     assert result.answer == "根据商品资料：vivo X100 手机，适合拍照"
+    assert result.sources[0].product_id == product_id
     assert result.sources[0].source_url == "https://example.test/x100"
     material = generate.call_args.args[0]
     assert "138****0000" in material["question"]

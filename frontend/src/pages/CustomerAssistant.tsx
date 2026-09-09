@@ -1,6 +1,7 @@
 import { CloseOutlined, CustomerServiceOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons'
 import { Button, Input, Spin } from 'antd'
 import { FormEvent, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import type { CustomerSupportConversation, CustomerSupportReply } from '../types/shop'
 
@@ -9,6 +10,7 @@ type Message = { sender: 'CUSTOMER' | 'ASSISTANT' | 'SYSTEM'; content: string; e
 const suggestions = ['推荐一款适合拍照的手机', '查询我的订单状态', '售后保修规则是什么？']
 
 export default function CustomerAssistant() {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [conversation, setConversation] = useState<CustomerSupportConversation>()
   const [messages, setMessages] = useState<Message[]>([])
@@ -47,7 +49,11 @@ export default function CustomerAssistant() {
       <header className="assistant-chat__header"><div><h2 id="customer-assistant-title">智能客服</h2><span><i />在线</span></div><div className="assistant-chat__actions"><Button type="text" icon={<PlusOutlined />} onClick={reset} aria-label="开始新对话" title="开始新对话" /><Button type="text" icon={<CloseOutlined />} onClick={() => setOpen(false)} aria-label="关闭智能客服" title="关闭智能客服" /></div></header>
       <div className="assistant-messages" aria-live="polite">
         {!messages.length && <article className="assistant-message assistant-message--assistant assistant-message--greeting"><span className="assistant-message__sender">智能客服</span><div className="assistant-message__bubble"><p>你好，我是你的智能客服。今天想咨询商品、订单还是售后？</p><div className="assistant-message__suggestions">{suggestions.map((item) => <button key={item} type="button" onClick={() => send(undefined, item)}>{item}</button>)}</div></div></article>}
-        {messages.map((item, index) => <article key={index} className={`assistant-message assistant-message--${item.sender.toLowerCase()}`}><span className="assistant-message__sender">{item.sender === 'CUSTOMER' ? '你' : item.sender === 'ASSISTANT' ? '智能客服' : '系统'}</span><div className="assistant-message__bubble"><p>{item.content}</p>{item.evidence?.sources?.length ? <div className="assistant-message__sources">{item.evidence.sources.map((source) => <a key={source} href={source} target="_blank" rel="noreferrer">查看商品资料</a>)}</div> : null}</div></article>)}
+        {messages.map((item, index) => {
+          const products = item.evidence?.products
+          const productId = item.sender === 'ASSISTANT' && Array.isArray(products) ? products.find((product) => product && typeof product === 'object' && Number.isInteger(product.product_id) && product.product_id > 0)?.product_id : undefined
+          return <article key={index} className={`assistant-message assistant-message--${item.sender.toLowerCase()}`}><span className="assistant-message__sender">{item.sender === 'CUSTOMER' ? '你' : item.sender === 'ASSISTANT' ? '智能客服' : '系统'}</span><div className="assistant-message__bubble">{productId ? <Button type="primary" onClick={() => navigate(`/shop/products/${productId}`)}>查看商品信息</Button> : <p>{item.content}</p>}</div></article>
+        })}
         {loading && <div className="assistant-typing"><Spin size="small" />智能客服正在整理资料...</div>}
       </div>
       {failed && <p className="assistant-error" role="alert">服务暂时不可用，请重试或转人工处理。</p>}
