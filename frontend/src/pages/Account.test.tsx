@@ -1,10 +1,12 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import client from '../api/client'
 import Account from './Account'
 
 vi.mock('../api/client', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }))
+
+afterEach(cleanup)
 
 describe('Account', () => {
   it('聚合订单配送状态、地址维护入口与系统定义的偏好标签', async () => {
@@ -22,5 +24,17 @@ describe('Account', () => {
     expect(screen.getByRole('heading', { name: '购物偏好' })).toBeInTheDocument()
     expect(screen.getByText('品牌')).toBeInTheDocument()
     expect(screen.getAllByText('未授权生成').length).toBeGreaterThan(0)
+  })
+
+  it('保持三个可扫描分段并在未授权时展示全部偏好标签', async () => {
+    vi.mocked(client.get).mockResolvedValue({ data: { enabled: false, preferences: [], ignored_keys: [] } } as never)
+    render(<MemoryRouter><Account /></MemoryRouter>)
+
+    expect(await screen.findByTestId('account-section-orders')).toBeInTheDocument()
+    expect(screen.getByTestId('account-section-addresses')).toBeInTheDocument()
+    expect(screen.getByTestId('account-section-preferences')).toBeInTheDocument()
+    expect(screen.getByText('品类')).toBeInTheDocument()
+    expect(screen.getByText('购买频率')).toBeInTheDocument()
+    expect(screen.getAllByText('未授权生成')).toHaveLength(6)
   })
 })
