@@ -23,7 +23,7 @@
 **文件：**
 - 创建：`frontend/src/assets/brand/brand-mark.svg`
 
-- [ ] **步骤 1：编写失败的结构测试**
+- [x] **步骤 1：编写失败的结构测试**
 
 运行以下 PowerShell 断言，文件尚未存在时应失败：
 
@@ -31,13 +31,13 @@
 [xml](Get-Content -Raw 'frontend/src/assets/brand/brand-mark.svg')
 ```
 
-- [ ] **步骤 2：确认失败原因**
+- [x] **步骤 2：确认失败原因**
 
 运行：`[xml](Get-Content -Raw 'frontend/src/assets/brand/brand-mark.svg')`
 
 预期：PowerShell 报告找不到该路径。
 
-- [ ] **步骤 3：创建最小 SVG 实现**
+- [x] **步骤 3：创建最小 SVG 实现**
 
 ```svg
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90" role="img" aria-label="品牌优选确认路径标识">
@@ -48,7 +48,7 @@
 </svg>
 ```
 
-- [ ] **步骤 4：运行结构验证**
+- [x] **步骤 4：运行结构验证**
 
 运行：`[xml](Get-Content -Raw 'frontend/src/assets/brand/brand-mark.svg'); 'PASS'`
 
@@ -60,24 +60,24 @@
 - 创建：`frontend/src/assets/brand/brand-mark-reverse.svg`
 - 创建：`frontend/src/assets/brand/brand-mark-monochrome.svg`
 
-- [ ] **步骤 1：编写失败的存在性测试**
+- [x] **步骤 1：编写失败的存在性测试**
 
 ```powershell
 Test-Path 'frontend/src/assets/brand/brand-mark-reverse.svg'
 Test-Path 'frontend/src/assets/brand/brand-mark-monochrome.svg'
 ```
 
-- [ ] **步骤 2：确认失败原因**
+- [x] **步骤 2：确认失败原因**
 
 运行上述命令。
 
 预期：两行均输出 `False`。
 
-- [ ] **步骤 3：创建反白和单色 SVG**
+- [x] **步骤 3：创建反白和单色 SVG**
 
 两个文件保留任务 1 的相同图形路径和坐标系；反白版使用 `#5fc7ed` 底色及 `#173d61` 路径，单色版全部使用 `#173d61` 填充与描边。
 
-- [ ] **步骤 4：运行 XML 与颜色验证**
+- [x] **步骤 4：运行 XML 与颜色验证**
 
 运行：`Get-ChildItem 'frontend/src/assets/brand/brand-mark-*.svg' | ForEach-Object { [xml](Get-Content -Raw $_); $_.Name }`
 
@@ -89,28 +89,28 @@ Test-Path 'frontend/src/assets/brand/brand-mark-monochrome.svg'
 - 创建：`frontend/src/assets/brand/brand-logo-horizontal.svg`
 - 创建：`frontend/src/assets/brand/brand-guidelines.md`
 
-- [ ] **步骤 1：编写失败的内容检查**
+- [x] **步骤 1：编写失败的内容检查**
 
 ```powershell
 Test-Path 'frontend/src/assets/brand/brand-logo-horizontal.svg'
 Test-Path 'frontend/src/assets/brand/brand-guidelines.md'
 ```
 
-- [ ] **步骤 2：确认失败原因**
+- [x] **步骤 2：确认失败原因**
 
 运行上述命令。
 
 预期：两行均输出 `False`。
 
-- [ ] **步骤 3：创建横向字标和规范**
+- [x] **步骤 3：创建横向字标和规范**
 
 横向 SVG 使用宽高比约 `330:90`，引用图标的同一图形结构，并通过 `<text>` 提供 `品牌优选` 和 `CONFIDENT SERVICE`。规范必须列出：24 px 图标下限、32 px 横向字标下限、20% 留白、浅色/深色/单色选择规则，以及禁止改色、变形、阴影、渐变和拆分字标。
 
-- [ ] **步骤 4：运行内容与安全检查**
+- [x] **步骤 4：运行内容与安全检查**
 
-运行：`rg -n "(http:|https:|<script|base64|TODO|C:\\|D:\\)" frontend/src/assets/brand`
+运行：`rg -n "(<script|base64|TODO|C:\\|D:\\|href=|xlink:href=)" frontend/src/assets/brand`
 
-预期：无输出且进程退出码为 1；表示文件未包含外部资源、脚本、位图数据、占位内容或本机路径。
+预期：无输出且进程退出码为 1；表示文件未包含外部资源、脚本、位图数据、占位内容或本机路径。SVG 的 XML 命名空间 `http://www.w3.org/2000/svg` 是格式必需内容，不作为外链扫描项。
 
 ### 任务 4：完成静态资产回归验证
 
@@ -118,25 +118,25 @@ Test-Path 'frontend/src/assets/brand/brand-guidelines.md'
 - 验证：`frontend/src/assets/brand/*.svg`
 - 验证：`frontend/src/assets/brand/brand-guidelines.md`
 
-- [ ] **步骤 1：验证 SVG 坐标系与最小可读性约束**
+- [x] **步骤 1：验证 SVG 坐标系与最小可读性约束**
 
-运行：`rg -n 'viewBox="0 0 90 90"|aria-label="品牌优选确认路径标识"' frontend/src/assets/brand/*.svg`
+运行：`rg -n 'viewBox="0 0 (90 90|330 90)"|aria-label="品牌优选确认路径标识"' frontend/src/assets/brand`
 
-预期：四个 SVG 都匹配 90 单位坐标系与中文无障碍标签。
+预期：三个图标匹配 90 单位坐标系，横向字标匹配 330:90 坐标系，四个 SVG 均有中文无障碍标签。
 
-- [ ] **步骤 2：运行前端生产构建**
+- [x] **步骤 2：运行前端生产构建**
 
 运行：`npm --prefix frontend run build`
 
 预期：命令退出码为 0；允许既有 bundle 大小提示，不能有构建失败。
 
-- [ ] **步骤 3：检查变更范围**
+- [x] **步骤 3：检查变更范围**
 
 运行：`git diff --check; git status --short`
 
 预期：没有空白错误；本次新增内容仅位于 `frontend/src/assets/brand/` 与该计划文档，工作区原有改动保持原样。
 
-- [ ] **步骤 4：提交本次资产**
+- [x] **步骤 4：提交本次资产**
 
 ```powershell
 git add frontend/src/assets/brand docs/superpowers/plans/2026-09-09-confirmation-path-logo-assets.md

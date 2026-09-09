@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 90" role="img" aria-label="品牌优选确认路径标识">
+  <rect x="4" y="4" width="82" height="82" rx="20" fill="#287eb7"/>
+  <path d="M21 47h17l9-17 17 28H47l-9 12-17-23z" fill="#fff"/>
+  <circle cx="65" cy="29" r="11" fill="#f1ae42"/>
+  <path d="m60 29 3 3 6-7" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="106" y="45" fill="#153d60" font-family="Arial, Microsoft YaHei, sans-serif" font-size="30" font-weight="700">品牌优选</text>
+  <text x="108" y="66" fill="#59758c" font-family="Arial, sans-serif" font-size="10" letter-spacing="1.4">CONFIDENT SERVICE</text>
+</svg>
