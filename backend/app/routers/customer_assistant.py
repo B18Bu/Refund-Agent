@@ -10,12 +10,13 @@ from app.customer_assistant.preferences import (
 )
 from app.customer_assistant.schemas import (
     CatalogEvidence, CustomerAssistantReplyRequest, CustomerAssistantReplyResponse,
+    CustomerConversationMessagesResponse,
     CustomerPreferenceResponse, CustomerPreferenceUpdateRequest, CustomerPrivacyResponse,
-    CustomerPrivacyUpdateRequest,
+    CustomerPrivacyUpdateRequest, CustomerSupportMessageResponse,
 )
 from app.customer_assistant.service import CustomerAssistantService
 from app.customer_assistant.conversations import ConversationService
-from app.customer_assistant.models import CustomerSupportConversation, CustomerSupportMessage
+from app.customer_assistant.models import CustomerSupportCase, CustomerSupportConversation, CustomerSupportMessage
 from app.deps import get_db, require_role
 from app.models import Role
 
@@ -31,7 +32,30 @@ def create_conversation(user=Depends(require_role(Role.CUSTOMER)), db: Session =
 def send_message(conversation_id: int, body: CustomerAssistantReplyRequest, user=Depends(require_role(Role.CUSTOMER)), db: Session = Depends(get_db)):
     try: result = ConversationService(db).reply(conversation_id, user.id, body.message)
     except LookupError as error: raise HTTPException(404, str(error)) from error
+    except ValueError as error: raise HTTPException(409, str(error)) from error
     return {"conversation_id": result.conversation_id, "answer": result.answer, "intent": result.intent, "evidence": result.evidence}
+
+
+@router.get("/conversations/{conversation_id}/messages", response_model=CustomerConversationMessagesResponse)
+def list_messages(conversation_id: int, user=Depends(require_role(Role.CUSTOMER)), db: Session = Depends(get_db)):
+    try:
+        messages = ConversationService(db).list_messages(conversation_id, user.id, user.role)
+    except LookupError as error:
+        raise HTTPException(404, str(error)) from error
+    case = db.query(CustomerSupportCase).filter_by(conversation_id=conversation_id).one_or_none()
+    return CustomerConversationMessagesResponse(
+        status=case.status if case else "NO_CASE",
+        messages=[
+            CustomerSupportMessageResponse(
+                id=message.id,
+                sender=message.sender,
+                content=message.content_masked,
+                evidence=message.evidence or {},
+                created_at=message.created_at.isoformat() if message.created_at else None,
+            )
+            for message in messages
+        ],
+    )
 
 @router.post("/conversations/{conversation_id}/escalations")
 def escalate(conversation_id: int, user=Depends(require_role(Role.CUSTOMER)), db: Session = Depends(get_db)):

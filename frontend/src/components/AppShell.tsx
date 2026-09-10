@@ -9,6 +9,7 @@ import {
   SafetyCertificateOutlined,
   ReloadOutlined,
   LogoutOutlined,
+  CustomerServiceOutlined,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import client from '../api/client'
@@ -21,6 +22,7 @@ type TicketRow = { status: string; outcome: string }
 
 const csItems = [
   { key: '/service/orders', icon: <SafetyCertificateOutlined />, label: '订单中心' },
+  { key: '/service/chat', icon: <CustomerServiceOutlined />, label: '人工答疑' },
 ]
 
 export default function AppShell() {

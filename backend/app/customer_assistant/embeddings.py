@@ -7,7 +7,7 @@ from typing import Protocol
 import httpx
 
 
-CATALOG_EMBEDDING_SERVICE_URL = "http://rag-embedding:8080"
+CATALOG_EMBEDDING_SERVICE_URL = "http://127.0.0.1:8080"
 CATALOG_EMBEDDING_DIMENSION = 512
 
 

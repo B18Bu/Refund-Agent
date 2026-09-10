@@ -32,6 +32,10 @@ def test_entrypoint_runs_migrations_after_database_readiness():
     assert content.index("pg_isready") < content.index("20260829_create_core_users_tickets.sql")
 
 
+def test_entrypoint_uses_lf_line_endings_for_linux_execution():
+    assert b"\r\n" not in ENTRYPOINT.read_bytes()
+
+
 def test_entrypoint_runs_all_migrations_in_version_order():
     content = ENTRYPOINT.read_text(encoding="utf-8")
     migrations = (

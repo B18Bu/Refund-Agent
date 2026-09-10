@@ -1,7 +1,7 @@
 """消费者助手接口的数据契约。"""
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CustomerAssistantContext(BaseModel):
@@ -15,6 +15,30 @@ class CustomerAssistantContext(BaseModel):
 class CustomerAssistantReplyRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     context: CustomerAssistantContext = Field(default_factory=CustomerAssistantContext)
+
+
+class CustomerSupportMessageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def strip_content(cls, value: str) -> str:
+        return value.strip() if isinstance(value, str) else value
+
+
+class CustomerSupportMessageResponse(BaseModel):
+    id: int
+    sender: str
+    content: str
+    evidence: dict
+    created_at: str | None
+
+
+class CustomerConversationMessagesResponse(BaseModel):
+    status: Literal["OPEN", "IN_PROGRESS", "RESOLVED", "NO_CASE"]
+    messages: list[CustomerSupportMessageResponse]
 
 
 class CatalogEvidence(BaseModel):

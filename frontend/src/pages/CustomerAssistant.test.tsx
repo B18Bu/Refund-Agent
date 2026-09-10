@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import client from '../api/client'
@@ -6,7 +6,7 @@ import CustomerAssistant from './CustomerAssistant'
 
 const seededMessages = vi.hoisted(() => ({ value: undefined as unknown }))
 
-vi.mock('../api/client', () => ({ default: { post: vi.fn() } }))
+vi.mock('../api/client', () => ({ default: { get: vi.fn(), post: vi.fn() } }))
 vi.mock('react', async () => {
   const actual = await vi.importActual<typeof import('react')>('react')
   return {
@@ -16,7 +16,7 @@ vi.mock('react', async () => {
 })
 
 describe('CustomerAssistant', () => {
-  afterEach(() => { cleanup(); seededMessages.value = undefined })
+  afterEach(() => { cleanup(); seededMessages.value = undefined; vi.useRealTimers(); vi.restoreAllMocks() })
 
   it('keeps the conversation hidden until the floating customer-service button opens it', () => {
     render(<MemoryRouter><CustomerAssistant /></MemoryRouter>)
@@ -44,14 +44,14 @@ describe('CustomerAssistant', () => {
     expect(screen.getByText('可以帮你比较夜拍表现。')).toBeInTheDocument()
   })
 
-  it('opens the referenced catalog product without exposing the recommendation text or source links', async () => {
+  it('先展示推荐商品名称和说明，再提供商品详情入口', async () => {
     vi.mocked(client.post)
       .mockResolvedValueOnce({ data: { id: 9, status: 'OPEN' } } as never)
       .mockResolvedValueOnce({ data: {
         conversation_id: 9,
         answer: '推荐这款旗舰影像手机。',
         intent: 'CATALOG',
-        evidence: { products: [{ product_id: 7, source_url: 'https://example.com/products/7' }, { product_id: 8, source_url: 'https://example.com/products/8' }, { product_id: 0, source_url: 'https://example.com/invalid' }] },
+        evidence: { products: [{ product_id: 7, product_name: '影像旗舰 X7', source_url: 'https://example.com/products/7' }, { product_id: 8, product_name: '备用 X8', source_url: 'https://example.com/products/8' }, { product_id: 0, source_url: 'https://example.com/invalid' }] },
       } } as never)
 
     render(<MemoryRouter initialEntries={['/shop']}><Routes><Route path="*" element={<CustomerAssistant />} /><Route path="/shop/products/7" element={<p>商品 7 详情页</p>} /><Route path="/shop/products/8" element={<p>商品 8 详情页</p>} /></Routes></MemoryRouter>)
@@ -61,7 +61,8 @@ describe('CustomerAssistant', () => {
 
     const productButtons = await screen.findAllByRole('button', { name: '查看商品信息' })
     expect(productButtons).toHaveLength(1)
-    expect(screen.queryByText('推荐这款旗舰影像手机。')).not.toBeInTheDocument()
+    expect(screen.getByText('推荐这款旗舰影像手机。')).toBeInTheDocument()
+    expect(screen.getByText('影像旗舰 X7')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: '查看商品资料' })).not.toBeInTheDocument()
 
     fireEvent.click(productButtons[0])
@@ -101,6 +102,61 @@ describe('CustomerAssistant', () => {
 
     expect(await screen.findByText('暂时没有可跳转的商品。')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '查看商品信息' })).not.toBeInTheDocument()
+  })
+
+  it('转人工后轮询并展示客服回复', async () => {
+    vi.mocked(client.post)
+      .mockResolvedValueOnce({ data: { id: 9, status: 'OPEN' } } as never)
+      .mockResolvedValueOnce({ data: { conversation_id: 9, answer: '正在为你转接人工客服。', intent: 'OTHER', evidence: {} } } as never)
+      .mockResolvedValueOnce({ data: { case_id: 3, status: 'OPEN' } } as never)
+    vi.mocked(client.get).mockResolvedValue({ data: {
+      status: 'OPEN',
+      messages: [
+        { id: 10, sender: 'CUSTOMER', content: '需要人工帮助', evidence: {}, created_at: '2026-09-09T11:59:00Z' },
+        { id: 11, sender: 'ASSISTANT', content: '正在为你转接人工客服。', evidence: {}, created_at: '2026-09-09T12:00:00Z' },
+        { id: 12, sender: 'AGENT', content: '您好，我来协助处理', evidence: {}, created_at: '2026-09-09T12:00:01Z' },
+      ],
+    } } as never)
+
+    render(<MemoryRouter><CustomerAssistant /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: '打开智能客服' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '输入消息' }), { target: { value: '需要人工帮助' } })
+    fireEvent.click(screen.getByRole('button', { name: '发送消息' }))
+    await screen.findByText('正在为你转接人工客服。')
+
+    fireEvent.click(screen.getByRole('button', { name: '需要人工处理？转人工客服' }))
+
+    expect(await screen.findByText('您好，我来协助处理')).toBeInTheDocument()
+    expect(screen.getByText('人工客服')).toBeInTheDocument()
+    expect(screen.getAllByText('需要人工帮助')).toHaveLength(1)
+    expect(screen.getAllByText('正在为你转接人工客服。')).toHaveLength(1)
+    expect(screen.getAllByText('智能客服')).toHaveLength(2)
+    expect(client.get).toHaveBeenCalledWith('/customer-assistant/conversations/9/messages')
+  })
+
+  it('人工服务结束后显示提示并停止两秒轮询', async () => {
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval')
+    vi.mocked(client.post)
+      .mockResolvedValueOnce({ data: { id: 9, status: 'OPEN' } } as never)
+      .mockResolvedValueOnce({ data: { conversation_id: 9, answer: '正在为你转接人工客服。', intent: 'OTHER', evidence: {} } } as never)
+      .mockResolvedValueOnce({ data: { case_id: 3, status: 'OPEN' } } as never)
+    vi.mocked(client.get).mockResolvedValue({ data: {
+      status: 'RESOLVED',
+      messages: [{ id: 12, sender: 'AGENT', content: '问题已处理完成', evidence: {}, created_at: '2026-09-09T12:00:01Z' }],
+    } } as never)
+
+    render(<MemoryRouter><CustomerAssistant /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: '打开智能客服' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '输入消息' }), { target: { value: '需要人工帮助' } })
+    fireEvent.click(screen.getByRole('button', { name: '发送消息' }))
+    await screen.findByText('正在为你转接人工客服。')
+    fireEvent.click(screen.getByRole('button', { name: '需要人工处理？转人工客服' }))
+
+    await screen.findByText('本次人工服务已结束')
+    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(clearIntervalSpy).toHaveBeenCalled())
+    expect(screen.getByRole('textbox', { name: '输入消息' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '发送消息' })).toBeDisabled()
   })
 
   it.each([

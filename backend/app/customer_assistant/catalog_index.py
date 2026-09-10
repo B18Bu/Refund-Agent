@@ -25,6 +25,7 @@ class CustomerCatalogIndexer:
     def index(self) -> CustomerCatalogIndexResult:
         created_chunks = 0
         current_chunks: set[tuple[int, str, str]] = set()
+        pending_chunks = []
         products = (
             self._session.query(Product)
             .options(joinedload(Product.sources))
@@ -52,11 +53,22 @@ class CustomerCatalogIndexer:
                     existing.source_hash = source_hash
                     existing.crawled_at = source.last_seen_at
                     continue
-                embedding = self._embedding_client.embed([content])[0]
+                pending_chunks.append((
+                    product.id,
+                    source_url,
+                    source.last_seen_at,
+                    source_hash,
+                    content,
+                    content_hash,
+                ))
+        if pending_chunks:
+            embeddings = self._embedding_client.embed([item[4] for item in pending_chunks])
+            for item, embedding in zip(pending_chunks, embeddings):
+                product_id, source_url, crawled_at, source_hash, content, content_hash = item
                 self._session.add(CustomerCatalogChunk(
-                    product_id=product.id,
+                    product_id=product_id,
                     source_url=source_url,
-                    crawled_at=source.last_seen_at,
+                    crawled_at=crawled_at,
                     source_hash=source_hash,
                     content=content,
                     content_hash=content_hash,

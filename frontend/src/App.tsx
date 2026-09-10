@@ -19,6 +19,7 @@ import Orders from './pages/Orders'
 import OrderDetail from './pages/OrderDetail'
 import Returns from './pages/Returns'
 import ServiceRefunds from './pages/ServiceRefunds'
+import CustomerSupportChat from './pages/CustomerSupportChat'
 import PrivacyPreferences from './pages/PrivacyPreferences'
 import Account from './pages/Account'
 
@@ -74,6 +75,7 @@ export default function App() {
             <Route path="/security-governance" element={<SupervisorOnly><SecurityGovernance /></SupervisorOnly>} />
             <Route path="/service/orders" element={<ServiceRefunds />} />
             <Route path="/service/refunds" element={<ServiceRefunds defaultTab="returns" />} />
+            <Route path="/service/chat" element={<CustomerSupportChat />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

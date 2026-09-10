@@ -1,12 +1,13 @@
 import re
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.commerce_models import Order, ReturnRequest
+from app.commerce_models import Order, Product, ReturnRequest
 from app.customer_assistant.models import CustomerSupportCase, CustomerSupportConversation, CustomerSupportMessage
 from app.customer_assistant.service import CustomerAssistantService
-from app.models import User
+from app.models import Role, User
 from app.security.gateway import DLP
 
 
@@ -31,6 +32,9 @@ class ConversationService:
 
     def reply(self, conversation_id: int, user_id: int, message: str) -> ConversationReply:
         conversation = self._conversation(conversation_id, user_id)
+        case = self._session.query(CustomerSupportCase).filter_by(conversation_id=conversation.id).one_or_none()
+        if case and case.status == "RESOLVED":
+            raise ValueError("人工服务已结束，无法继续发送消息")
         masked, _ = DLP.mask(message)
         intent = _intent(masked)
         self._session.add(CustomerSupportMessage(
@@ -61,8 +65,13 @@ class ConversationService:
             result = CustomerAssistantService(self._session).reply(customer, masked, {}, history=history)
             answer = result.answer
             evidence = {"products": [
-                {"product_id": source.product_id, "source_url": source.source_url}
+                {
+                    "product_id": source.product_id,
+                    "product_name": product.name,
+                    "source_url": source.source_url,
+                }
                 for source in result.sources
+                if (product := self._session.get(Product, source.product_id)) is not None
             ]}
         self._session.add(CustomerSupportMessage(
             conversation_id=conversation.id,
@@ -71,6 +80,8 @@ class ConversationService:
             intent=intent,
             evidence=evidence,
         ))
+        if case:
+            case.updated_at = datetime.utcnow()
         self._session.commit()
         return ConversationReply(conversation.id, answer, intent, evidence)
 
@@ -84,6 +95,45 @@ class ConversationService:
         self._session.add(case)
         self._session.commit()
         return case
+
+    def conversation_for_customer(self, conversation_id: int, user_id: int) -> CustomerSupportConversation:
+        return self._conversation(conversation_id, user_id)
+
+    def list_messages(self, conversation_id: int, user_id: int, role: Role) -> list[CustomerSupportMessage]:
+        if role == Role.CUSTOMER:
+            self.conversation_for_customer(conversation_id, user_id)
+        elif self._session.get(CustomerSupportConversation, conversation_id) is None:
+            raise LookupError("会话不存在")
+        return (
+            self._session.query(CustomerSupportMessage)
+            .filter_by(conversation_id=conversation_id)
+            .order_by(CustomerSupportMessage.id.asc())
+            .all()
+        )
+
+    def add_agent_message(self, case_id: int, agent_id: int, content: str) -> CustomerSupportMessage:
+        case = (
+            self._session.query(CustomerSupportCase)
+            .filter_by(id=case_id, status="IN_PROGRESS", assigned_to=agent_id)
+            .with_for_update()
+            .one_or_none()
+        )
+        if case is None:
+            if self._session.get(CustomerSupportCase, case_id) is None:
+                raise LookupError("客服工单不存在")
+            raise ValueError("当前客服未领取该工单")
+        masked, _ = DLP.mask(content)
+        message = CustomerSupportMessage(
+            conversation_id=case.conversation_id,
+            sender="AGENT",
+            content_masked=masked,
+            evidence={},
+        )
+        self._session.add(message)
+        case.updated_at = datetime.utcnow()
+        self._session.commit()
+        self._session.refresh(message)
+        return message
 
     def _conversation(self, conversation_id: int, user_id: int) -> CustomerSupportConversation:
         conversation = self._session.query(CustomerSupportConversation).filter_by(

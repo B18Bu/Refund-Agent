@@ -12,6 +12,21 @@ class FakeEmbedding:
         return [[0.25] * 512 for _ in texts]
 
 
+class RecordingEmbedding(FakeEmbedding):
+    def __init__(self):
+        self.calls = []
+
+    def embed(self, texts):
+        self.calls.append(texts)
+        return super().embed(texts)
+
+
+def test_customer_catalog_embedding_uses_local_service_in_single_container():
+    from app.customer_assistant.embeddings import CATALOG_EMBEDDING_SERVICE_URL
+
+    assert CATALOG_EMBEDDING_SERVICE_URL == "http://127.0.0.1:8080"
+
+
 def _product_with_source(db_session, *, status, description, source_url):
     product = Product(
         brand="测试品牌",
@@ -61,6 +76,29 @@ def test_index_excludes_unavailable_products_and_preserves_source(db_session):
     assert chunks[0].source_hash == "a" * 63 + str(active.id)
     assert chunks[0].crawled_at == datetime(2026, 9, 7, 10, 30)
     assert chunks[0].embedding == [0.25] * 512
+
+
+def test_index_batches_embeddings_for_multiple_new_products(db_session):
+    from app.customer_assistant.catalog_index import CustomerCatalogIndexer
+
+    _product_with_source(
+        db_session,
+        status=ProductStatus.ACTIVE,
+        description="第一件商品",
+        source_url="https://example.test/one",
+    )
+    _product_with_source(
+        db_session,
+        status=ProductStatus.ACTIVE,
+        description="第二件商品",
+        source_url="https://example.test/two",
+    )
+    embedding = RecordingEmbedding()
+
+    CustomerCatalogIndexer(db_session, embedding).index()
+
+    assert len(embedding.calls) == 1
+    assert len(embedding.calls[0]) == 2
 
 
 def test_index_masks_sensitive_product_text_and_keeps_consumer_tables_isolated(db_session):
