@@ -1,3 +1,5 @@
+import { getSessionToken } from '../auth/session'
+
 export type Role = 'customer' | 'cs' | 'sv'
 
 export type SessionUser = {
@@ -17,7 +19,7 @@ function decodeBase64Url(value: string): string {
 }
 
 export function getSessionUser(): SessionUser | null {
-  const token = localStorage.getItem('token')
+  const token = getSessionToken()
   if (!token) return null
 
   try {

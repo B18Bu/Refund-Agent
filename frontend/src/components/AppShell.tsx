@@ -15,6 +15,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import { getSessionUser } from '../types/auth'
 import brandMarkReverse from '../assets/brand/brand-mark-reverse.svg'
+import { clearSessionToken } from '../auth/session'
 
 const { Header, Sider, Content } = Layout
 
@@ -71,7 +72,7 @@ export default function AppShell() {
 
   const currentKey = items.some((item) => item.key === location.pathname) ? location.pathname : ''
   const logout = () => {
-    localStorage.removeItem('token')
+    clearSessionToken()
     nav('/login', { replace: true })
   }
 

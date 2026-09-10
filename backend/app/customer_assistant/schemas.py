@@ -40,6 +40,11 @@ class CustomerConversationMessagesResponse(BaseModel):
     status: Literal["OPEN", "IN_PROGRESS", "RESOLVED", "NO_CASE"]
     messages: list[CustomerSupportMessageResponse]
 
+class CustomerSupportConversationResponse(BaseModel):
+    id: int
+    status: Literal["OPEN", "IN_PROGRESS", "RESOLVED", "NO_CASE"]
+    summary_masked: str | None
+
 
 class CatalogEvidence(BaseModel):
     source_url: str

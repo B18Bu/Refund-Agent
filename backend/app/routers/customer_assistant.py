@@ -10,7 +10,7 @@ from app.customer_assistant.preferences import (
 )
 from app.customer_assistant.schemas import (
     CatalogEvidence, CustomerAssistantReplyRequest, CustomerAssistantReplyResponse,
-    CustomerConversationMessagesResponse,
+    CustomerConversationMessagesResponse, CustomerSupportConversationResponse,
     CustomerPreferenceResponse, CustomerPreferenceUpdateRequest, CustomerPrivacyResponse,
     CustomerPrivacyUpdateRequest, CustomerSupportMessageResponse,
 )
@@ -22,6 +22,10 @@ from app.models import Role
 
 
 router = APIRouter(prefix="/api/customer-assistant", tags=["customer-assistant"])
+
+@router.get("/conversations", response_model=list[CustomerSupportConversationResponse])
+def list_conversations(user=Depends(require_role(Role.CUSTOMER)), db: Session = Depends(get_db)):
+    return ConversationService(db).list_conversations(user.id)
 
 @router.post("/conversations")
 def create_conversation(user=Depends(require_role(Role.CUSTOMER)), db: Session = Depends(get_db)):

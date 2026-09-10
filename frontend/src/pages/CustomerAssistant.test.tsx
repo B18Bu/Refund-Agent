@@ -106,6 +106,20 @@ describe('CustomerAssistant', () => {
     expect(screen.queryByRole('button', { name: '查看商品信息' })).not.toBeInTheDocument()
   })
 
+  it('默认收起历史会话，并可加载已结束会话为只读消息', async () => {
+    vi.mocked(client.get).mockImplementation((url) => Promise.resolve({ data: url === '/customer-assistant/conversations'
+      ? [{ id: 6, status: 'RESOLVED', summary_masked: '上次咨询夜拍' }]
+      : { status: 'RESOLVED', messages: [{ id: 20, sender: 'CUSTOMER', content: '历史问题', evidence: {}, created_at: null }] },
+    } as never))
+    render(<MemoryRouter><CustomerAssistant /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: '打开智能客服' }))
+    expect(screen.queryByLabelText('历史会话列表')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '历史会话' }))
+    fireEvent.click(await screen.findByRole('button', { name: /上次咨询夜拍/ }))
+    expect(await screen.findByText('历史问题')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '输入消息' })).toBeDisabled()
+  })
+
   it('转人工后轮询并展示客服回复', async () => {
     vi.mocked(client.post)
       .mockResolvedValueOnce({ data: { id: 9, status: 'OPEN' } } as never)

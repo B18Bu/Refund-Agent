@@ -2,6 +2,7 @@ import { Form, Input, Button, Space, message } from 'antd'
 import client from '../api/client'
 import { useNavigate } from 'react-router-dom'
 import { getSessionUser } from '../types/auth'
+import { setSessionToken } from '../auth/session'
 
 export default function Login() {
   const nav = useNavigate()
@@ -9,7 +10,7 @@ export default function Login() {
   const onFinish = async (v: { username: string; password: string }) => {
     try {
       const { data } = await client.post('/auth/login', v)
-      localStorage.setItem('token', data.access_token)
+      setSessionToken(data.access_token)
       const role = getSessionUser()?.role
       nav(role === 'customer' ? '/shop' : role === 'cs' ? '/service/orders' : '/monitor')
     } catch (e: any) {

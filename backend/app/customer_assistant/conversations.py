@@ -83,6 +83,7 @@ class ConversationService:
             intent=intent,
             evidence=evidence,
         ))
+        conversation.updated_at = datetime.utcnow()
         if case:
             case.updated_at = datetime.utcnow()
         self._session.commit()
@@ -101,6 +102,15 @@ class ConversationService:
 
     def conversation_for_customer(self, conversation_id: int, user_id: int) -> CustomerSupportConversation:
         return self._conversation(conversation_id, user_id)
+
+    def list_conversations(self, user_id: int) -> list[dict]:
+        rows = self._session.query(CustomerSupportConversation).filter_by(user_id=user_id).order_by(CustomerSupportConversation.updated_at.desc(), CustomerSupportConversation.id.desc()).all()
+        result = []
+        for conversation in rows:
+            case = self._session.query(CustomerSupportCase).filter_by(conversation_id=conversation.id).one_or_none()
+            latest = self._session.query(CustomerSupportMessage).filter_by(conversation_id=conversation.id).order_by(CustomerSupportMessage.id.desc()).first()
+            result.append({"id": conversation.id, "status": case.status if case else "NO_CASE", "summary_masked": latest.content_masked if latest else None})
+        return result
 
     def list_messages(self, conversation_id: int, user_id: int, role: Role) -> list[CustomerSupportMessage]:
         if role == Role.CUSTOMER:

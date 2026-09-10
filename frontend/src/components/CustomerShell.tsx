@@ -6,6 +6,7 @@ import { getSessionUser } from '../types/auth'
 import CustomerAssistant from '../pages/CustomerAssistant'
 import brandLogoHorizontal from '../assets/brand/brand-logo-horizontal.svg'
 import brandMark from '../assets/brand/brand-mark.svg'
+import { clearSessionToken } from '../auth/session'
 
 const { Header, Content } = Layout
 
@@ -13,7 +14,7 @@ export default function CustomerShell() {
   const nav = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const logout = () => {
-    localStorage.removeItem('token')
+    clearSessionToken()
     nav('/login', { replace: true })
   }
   const search = (event: FormEvent<HTMLFormElement>) => {

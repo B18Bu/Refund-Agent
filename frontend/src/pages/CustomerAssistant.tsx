@@ -1,9 +1,9 @@
-import { CloseOutlined, CustomerServiceOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons'
+import { CloseOutlined, CustomerServiceOutlined, HistoryOutlined, PlusOutlined, SendOutlined } from '@ant-design/icons'
 import { Button, Input, Spin } from 'antd'
 import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import client from '../api/client'
-import type { CustomerSupportConversation, CustomerSupportConversationMessages, CustomerSupportMessage, CustomerSupportReply } from '../types/shop'
+import type { CustomerSupportConversation, CustomerSupportConversationMessages, CustomerSupportConversationSummary, CustomerSupportMessage, CustomerSupportReply } from '../types/shop'
 
 type Message = Omit<Pick<CustomerSupportMessage, 'id' | 'sender' | 'content'>, 'id'> & { id?:number; evidence?: CustomerSupportReply['evidence'] }
 
@@ -18,6 +18,8 @@ export default function CustomerAssistant() {
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
   const [escalated, setEscalated] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [history, setHistory] = useState<CustomerSupportConversationSummary[]>([])
 
   const reset = () => { setConversation(undefined); setMessages([]); setMessage(''); setFailed(false); setEscalated(false) }
 
@@ -27,6 +29,8 @@ export default function CustomerAssistant() {
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [open])
+
+  useEffect(() => { if (open && historyOpen) client.get<CustomerSupportConversationSummary[]>('/customer-assistant/conversations').then(({ data }) => setHistory(data)).catch(() => setFailed(true)) }, [historyOpen, open])
 
   useEffect(() => {
     if (!open || !escalated || !conversation || conversation.status === 'RESOLVED') return
@@ -70,11 +74,13 @@ export default function CustomerAssistant() {
     }).catch(() => setFailed(true)).finally(() => setLoading(false))
   }
   const escalate = () => conversation && client.post(`/customer-assistant/conversations/${conversation.id}/escalations`).then(() => { setEscalated(true); setMessages((current) => [...current, { sender: 'SYSTEM', content: '已转人工客服处理，你可以继续查看本次对话记录。' }]) }).catch(() => setFailed(true))
+  const selectConversation = (item: CustomerSupportConversationSummary) => client.get<CustomerSupportConversationMessages>(`/customer-assistant/conversations/${item.id}/messages`).then(({ data }) => { setConversation({ id: item.id, status: data.status }); setEscalated(data.status !== 'NO_CASE'); setMessages(data.messages.map((row) => ({ id: row.id, sender: row.sender, content: row.content, evidence: row.evidence }))); setHistoryOpen(false) }).catch(() => setFailed(true))
 
   return <div className="assistant-widget">
     <button type="button" className="assistant-launcher" onClick={() => setOpen(true)} aria-label="打开智能客服" title="智能客服"><CustomerServiceOutlined aria-hidden="true" /></button>
     {open && <section className="assistant-float" role="dialog" aria-label="智能客服对话" aria-labelledby="customer-assistant-title">
-      <header className="assistant-chat__header"><div><h2 id="customer-assistant-title">智能客服</h2><span><i />在线</span></div><div className="assistant-chat__actions"><Button type="text" icon={<PlusOutlined />} onClick={reset} aria-label="开始新对话" title="开始新对话" /><Button type="text" icon={<CloseOutlined />} onClick={() => setOpen(false)} aria-label="关闭智能客服" title="关闭智能客服" /></div></header>
+      <header className="assistant-chat__header"><div><h2 id="customer-assistant-title">智能客服</h2><span><i />在线</span></div><div className="assistant-chat__actions"><Button type="text" icon={<HistoryOutlined />} onClick={() => setHistoryOpen((value) => !value)} aria-label="历史会话" title="历史会话" /><Button type="text" icon={<PlusOutlined />} onClick={reset} aria-label="开始新对话" title="开始新对话" /><Button type="text" icon={<CloseOutlined />} onClick={() => setOpen(false)} aria-label="关闭智能客服" title="关闭智能客服" /></div></header>
+      {historyOpen && <aside className="assistant-history" aria-label="历史会话列表">{history.map((item) => <button type="button" key={item.id} onClick={() => void selectConversation(item)}><strong>{item.summary_masked || '新建对话'}</strong><span>{item.status === 'RESOLVED' ? '已结束' : item.status === 'NO_CASE' ? '智能客服' : '人工处理中'}</span></button>)}</aside>}
       <div className="assistant-messages" aria-live="polite">
         {!messages.length && <article className="assistant-message assistant-message--assistant assistant-message--greeting"><span className="assistant-message__sender">智能客服</span><div className="assistant-message__bubble"><p>你好，我是你的智能客服。今天想咨询商品、订单还是售后？</p><div className="assistant-message__suggestions">{suggestions.map((item) => <button key={item} type="button" onClick={() => send(undefined, item)}>{item}</button>)}</div></div></article>}
         {messages.map((item, index) => {
