@@ -51,7 +51,7 @@ describe('CustomerAssistant', () => {
         conversation_id: 9,
         answer: '推荐这款旗舰影像手机。',
         intent: 'CATALOG',
-        evidence: { products: [{ product_id: 7, product_name: '影像旗舰 X7', source_url: 'https://example.com/products/7' }, { product_id: 8, product_name: '备用 X8', source_url: 'https://example.com/products/8' }, { product_id: 0, source_url: 'https://example.com/invalid' }] },
+        evidence: { products: [{ product_id: 7, product_name: '影像旗舰 X7', description: '夜拍表现更出色', image_url: 'https://example.com/products/7.jpg', source_url: 'https://example.com/products/7' }, { product_id: 8, product_name: '备用 X8', source_url: 'https://example.com/products/8' }, { product_id: 0, source_url: 'https://example.com/invalid' }] },
       } } as never)
 
     render(<MemoryRouter initialEntries={['/shop']}><Routes><Route path="*" element={<CustomerAssistant />} /><Route path="/shop/products/7" element={<p>商品 7 详情页</p>} /><Route path="/shop/products/8" element={<p>商品 8 详情页</p>} /></Routes></MemoryRouter>)
@@ -63,6 +63,8 @@ describe('CustomerAssistant', () => {
     expect(productButtons).toHaveLength(1)
     expect(screen.getByText('推荐这款旗舰影像手机。')).toBeInTheDocument()
     expect(screen.getByText('影像旗舰 X7')).toBeInTheDocument()
+    expect(screen.getByText('夜拍表现更出色')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '影像旗舰 X7' })).toHaveAttribute('src', 'https://example.com/products/7.jpg')
     expect(screen.queryByRole('link', { name: '查看商品资料' })).not.toBeInTheDocument()
 
     fireEvent.click(productButtons[0])

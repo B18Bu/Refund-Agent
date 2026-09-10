@@ -127,7 +127,10 @@ def test_conversation_persists_masked_customer_and_assistant_turns(db_session):
     customer = User(username="support-turn-customer", password_hash="unused", role=Role.CUSTOMER)
     db_session.add(customer)
     db_session.flush()
-    product = Product(brand="vivo", name="X100", status=ProductStatus.ACTIVE)
+    product = Product(
+        brand="vivo", name="X100", description="旗舰影像手机", image_url="https://example.test/x100.jpg",
+        category="PHONE", status=ProductStatus.ACTIVE,
+    )
     db_session.add(product)
     db_session.flush()
     db_session.add(CustomerCatalogChunk(
@@ -145,7 +148,10 @@ def test_conversation_persists_masked_customer_and_assistant_turns(db_session):
     assert "13812340000" not in messages[0].content_masked
     assert "138****0000" in messages[0].content_masked
     assert reply.evidence == {
-        "products": [{"product_id": product.id, "product_name": "X100", "source_url": "https://example.test/x100"}]
+        "products": [{
+            "product_id": product.id, "product_name": "X100", "description": "旗舰影像手机",
+            "image_url": "https://example.test/x100.jpg", "category": "PHONE", "source_url": "https://example.test/x100",
+        }]
     }
     assert messages[1].evidence == reply.evidence
 
@@ -158,8 +164,8 @@ def test_conversation_products_evidence_preserves_catalog_relevance_order(db_ses
     customer = User(username="support-evidence-order-customer", password_hash="unused", role=Role.CUSTOMER)
     db_session.add(customer)
     db_session.flush()
-    lower_match = Product(brand="vivo", name="X100", status=ProductStatus.ACTIVE)
-    higher_match = Product(brand="vivo", name="Y200", status=ProductStatus.ACTIVE)
+    lower_match = Product(brand="vivo", name="X100", category="PHONE", status=ProductStatus.ACTIVE)
+    higher_match = Product(brand="vivo", name="Y200", category="PHONE", status=ProductStatus.ACTIVE)
     db_session.add_all([lower_match, higher_match])
     db_session.flush()
     db_session.add_all([
@@ -179,6 +185,6 @@ def test_conversation_products_evidence_preserves_catalog_relevance_order(db_ses
     reply = service.reply(conversation.id, customer.id, "推荐拍照手机")
 
     assert reply.evidence["products"] == [
-        {"product_id": higher_match.id, "product_name": "Y200", "source_url": "https://example.test/y200"},
-        {"product_id": lower_match.id, "product_name": "X100", "source_url": "https://example.test/x100"},
+        {"product_id": higher_match.id, "product_name": "Y200", "description": None, "image_url": None, "category": "PHONE", "source_url": "https://example.test/y200"},
+        {"product_id": lower_match.id, "product_name": "X100", "description": None, "image_url": None, "category": "PHONE", "source_url": "https://example.test/x100"},
     ]

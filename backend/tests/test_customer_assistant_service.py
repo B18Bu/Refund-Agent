@@ -4,11 +4,11 @@ from unittest.mock import Mock
 from app.models import Role, User
 
 
-def _catalog_chunk(db_session, *, content: str, source_url: str, crawled_at=None):
+def _catalog_chunk(db_session, *, content: str, source_url: str, crawled_at=None, category="PHONE"):
     from app.commerce_models import Product, ProductStatus
     from app.customer_assistant.models import CustomerCatalogChunk
 
-    product = Product(brand="vivo", name="X100", status=ProductStatus.ACTIVE)
+    product = Product(brand="vivo", name="X100", status=ProductStatus.ACTIVE, category=category)
     db_session.add(product)
     db_session.flush()
     db_session.add(CustomerCatalogChunk(
@@ -106,6 +106,26 @@ def test_reply_hard_filters_catalog_to_context_product_id(db_session):
     )
 
     assert [source.source_url for source in result.sources] == ["https://example.test/x100"]
+
+
+def test_phone_recommendation_excludes_peripheral_with_a_better_text_match(db_session):
+    from app.customer_assistant.service import CustomerAssistantService
+
+    user = User(username="assistant-phone-category", password_hash="unused", role=Role.CUSTOMER)
+    db_session.add(user)
+    db_session.commit()
+    phone_id = _catalog_chunk(
+        db_session, content="vivo X100 手机，适合拍照", source_url="https://example.test/x100", category="PHONE"
+    )
+    _catalog_chunk(
+        db_session, content="拍照手机专用手机壳，适合拍照手机", source_url="https://example.test/case", category="PERIPHERAL"
+    )
+
+    result = CustomerAssistantService(db_session, generate=Mock(return_value="资料已找到")).reply(
+        user, "推荐一款拍照好看的手机", {}
+    )
+
+    assert [source.product_id for source in result.sources] == [phone_id]
 
 
 def test_reply_excludes_catalog_chunk_when_its_product_is_no_longer_active(db_session):

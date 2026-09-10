@@ -18,6 +18,7 @@ from app.security.gateway import CriticEngine, DLP, SecurityException
 
 
 _RECOMMENDATION_RE = re.compile(r"推荐|适合.{0,12}(?:吗|的)|哪个好|选哪个|recommend", re.IGNORECASE)
+_PHONE_REQUEST_RE = re.compile(r"手机")
 _TERM_RE = re.compile(r"[a-z0-9]{2,}|[\u4e00-\u9fff]+", re.IGNORECASE)
 _NO_EVIDENCE = "未找到足够的商品资料，暂时无法给出推荐。"
 _BLOCKED = "该请求包含不安全指令，无法处理。"
@@ -121,6 +122,8 @@ class CustomerAssistantService:
             query = query.filter(CustomerCatalogChunk.product_id == scope["product_id"])
         if "brand" in scope:
             query = query.filter(Product.brand == scope["brand"])
+        if _PHONE_REQUEST_RE.search(message):
+            query = query.filter(Product.category == "PHONE")
         scored: list[tuple[int, int, CustomerCatalogChunk]] = []
         for chunk in query.all():
             content = chunk.content.lower()

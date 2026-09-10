@@ -68,6 +68,9 @@ class ConversationService:
                 {
                     "product_id": source.product_id,
                     "product_name": product.name,
+                    "description": product.description,
+                    "image_url": product.image_url,
+                    "category": product.category,
                     "source_url": source.source_url,
                 }
                 for source in result.sources
